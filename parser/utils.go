@@ -1,6 +1,7 @@
-package main
+package parser
 
 import (
+	"reflect"
 	"strings"
 	"unicode"
 )
@@ -36,4 +37,17 @@ func AnyToPascalCase(s string) string {
 		return strings.ToUpper(res[:1]) + res[1:]
 	}
 	return res
+}
+
+func isNil(x any) bool {
+	if x == nil {
+		return true
+	}
+	value := reflect.ValueOf(x)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+		return value.IsNil()
+	default:
+		return false
+	}
 }

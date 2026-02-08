@@ -40,8 +40,6 @@ model Response<T> {
 
 ```
 
----
-
 ## 3. Generated Code Architecture (TypeScript)
 
 The `TypescriptGenerator` processes the AST (Abstract Syntax Tree) to produce production-ready classes. Below is the generated output for the `LoginDTO` model:

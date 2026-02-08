@@ -1,8 +1,10 @@
-package main
+package generator
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/smtdfc/contractor/parser"
 )
 
 type CodeBuffer struct {
@@ -63,7 +65,7 @@ func NewTypescriptGenerator() *TypescriptGenerator {
 	return &TypescriptGenerator{}
 }
 
-func (g *TypescriptGenerator) GetAnnotation(node *AnnotationChainNode, name string) (*AnnotationNode, BaseError) {
+func (g *TypescriptGenerator) GetAnnotation(node *parser.AnnotationChainNode, name string) (*parser.AnnotationNode, parser.BaseError) {
 	if node == nil {
 		return nil, nil
 	}
@@ -75,11 +77,11 @@ func (g *TypescriptGenerator) GetAnnotation(node *AnnotationChainNode, name stri
 	return nil, nil
 }
 
-func (g *TypescriptGenerator) GenerateType(node Node) (string, BaseError) {
+func (g *TypescriptGenerator) GenerateType(node parser.Node) (string, parser.BaseError) {
 	switch v := node.(type) {
-	case *TypeVarNode:
+	case *parser.TypeVarNode:
 		return fmt.Sprintf("<%s>", v.Name), nil
-	case *TypeDeclarationNode:
+	case *parser.TypeDeclarationNode:
 		name := v.Name
 		if tsType, ok := TypescriptPrimitiveTypes[name]; ok {
 			name = tsType
@@ -96,7 +98,7 @@ func (g *TypescriptGenerator) GenerateType(node Node) (string, BaseError) {
 	return "", nil
 }
 
-func (g *TypescriptGenerator) ExtractValidationMetadata(node *ModelFieldNode) FieldValidationMetadata {
+func (g *TypescriptGenerator) ExtractValidationMetadata(node *parser.ModelFieldNode) FieldValidationMetadata {
 	metadata := FieldValidationMetadata{
 		Name:  node.Name,
 		Rules: make([]FieldValidateRule, 0),
@@ -110,12 +112,12 @@ func (g *TypescriptGenerator) ExtractValidationMetadata(node *ModelFieldNode) Fi
 			rule := FieldValidateRule{RuleName: anno.Name}
 			if anno.Name == "IsEmail" || anno.Name == "IsNotEmpty" {
 				if len(anno.Args) > 0 {
-					rule.Message = anno.Args[0].(*LiteralNode).Value
+					rule.Message = anno.Args[0].(*parser.LiteralNode).Value
 					metadata.Rules = append(metadata.Rules, rule)
 				}
 			} else if len(anno.Args) >= 2 {
-				rule.Value = anno.Args[0].(*LiteralNode).Value
-				rule.Message = anno.Args[1].(*LiteralNode).Value
+				rule.Value = anno.Args[0].(*parser.LiteralNode).Value
+				rule.Message = anno.Args[1].(*parser.LiteralNode).Value
 				metadata.Rules = append(metadata.Rules, rule)
 			}
 		}
@@ -123,13 +125,13 @@ func (g *TypescriptGenerator) ExtractValidationMetadata(node *ModelFieldNode) Fi
 	return metadata
 }
 
-func (g *TypescriptGenerator) Generate(ast *AST) (string, BaseError) {
+func (g *TypescriptGenerator) Generate(ast *parser.AST) (string, parser.BaseError) {
 	cb := NewCodeBuffer(2)
 	cb.WriteLine("import {ContractorRuntime} from 'contractor';")
 	cb.WriteString("\n")
 
 	for _, stat := range ast.Statements {
-		if v, ok := stat.(*ModelStatementNode); ok {
+		if v, ok := stat.(*parser.ModelStatementNode); ok {
 			res, err := g.GenerateModel(v)
 			if err != nil {
 				return "", err
@@ -140,7 +142,7 @@ func (g *TypescriptGenerator) Generate(ast *AST) (string, BaseError) {
 	return cb.String(), nil
 }
 
-func (g *TypescriptGenerator) GenerateModel(node *ModelStatementNode) (string, BaseError) {
+func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (string, parser.BaseError) {
 	cb := NewCodeBuffer(2)
 
 	genericCode := ""
@@ -194,7 +196,7 @@ func (g *TypescriptGenerator) GenerateModel(node *ModelStatementNode) (string, B
 
 	for _, field := range node.Fields {
 		fType, _ := g.GenerateType(field.Type)
-		pName := AnyToPascalCase(field.Name)
+		pName := parser.AnyToPascalCase(field.Name)
 
 		hasGetter, _ := g.GetAnnotation(field.Annotations, "Getter")
 		hasSetter, _ := g.GetAnnotation(field.Annotations, "Setter")
@@ -224,7 +226,7 @@ func (g *TypescriptGenerator) GenerateModel(node *ModelStatementNode) (string, B
 	return cb.String(), nil
 }
 
-func (g *TypescriptGenerator) GenerateStaticValidate(fields []*ModelFieldNode) string {
+func (g *TypescriptGenerator) GenerateStaticValidate(fields []*parser.ModelFieldNode) string {
 	cb := NewCodeBuffer(2)
 	cb.Indent()
 

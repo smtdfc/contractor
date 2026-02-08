@@ -1,4 +1,4 @@
-package main
+package parser
 
 type Node interface {
 	GetType() string
@@ -93,6 +93,14 @@ type TypeDeclarationNode struct {
 	Loc     *NodeLocation
 }
 
+func (n *TypeDeclarationNode) HasGeneric() bool {
+	if n.Generic == nil {
+		return false
+	}
+
+	return true
+}
+
 func (n *TypeDeclarationNode) GetType() string {
 	return "TypeDeclaration"
 }
@@ -102,7 +110,11 @@ func (n *TypeDeclarationNode) GetLocation() *NodeLocation {
 }
 
 func NewTypeDeclarationNode(name string, generic Node, loc *NodeLocation) *TypeDeclarationNode {
-	return &TypeDeclarationNode{Name: name, Generic: generic, Loc: loc}
+	return &TypeDeclarationNode{
+		Name:    name,
+		Generic: generic,
+		Loc:     loc,
+	}
 }
 
 type ModelFieldNode struct {

@@ -1,4 +1,4 @@
-package main
+package parser
 
 type Position struct {
 	Column int

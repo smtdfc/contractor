@@ -1,4 +1,8 @@
-package main
+package parser
+
+import (
+	"reflect"
+)
 
 type SymbolType int
 
@@ -22,6 +26,20 @@ func NewSymbol(t SymbolType, name string, node Node, hasGeneric bool) *Symbol {
 		HasGeneric: hasGeneric,
 		Node:       node,
 	}
+}
+
+func isTrulyNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+
+	val := reflect.ValueOf(i)
+	// If it's a pointer, slice, map, or func, it can be nil
+	switch val.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Interface, reflect.Func:
+		return val.IsNil()
+	}
+	return false
 }
 
 type Context struct {
@@ -82,12 +100,11 @@ func (c *TypeChecker) CheckType(ctx *Context, t *TypeDeclarationNode) BaseError 
 	if err != nil {
 		return err
 	}
-
-	if !symbol.HasGeneric && t.Generic != nil {
+	if !symbol.HasGeneric && !isNil(t.Generic) {
 		return NewTypeError("Symbol "+t.Name+" is not a generic type", t.Loc.GetErrorLocation())
-	} else if symbol.HasGeneric && t.Generic == nil {
+	} else if symbol.HasGeneric && isNil(t.Generic) {
 		return NewTypeError("Symbol "+t.Name+" requires a generic type argument", t.Loc.GetErrorLocation())
-	} else if symbol.HasGeneric && t.Generic != nil {
+	} else if symbol.HasGeneric && !isNil(t.Generic) {
 		return c.CheckType(ctx, t.Generic.(*TypeDeclarationNode))
 	}
 

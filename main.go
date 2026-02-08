@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	g "github.com/smtdfc/contractor/generator"
+	p "github.com/smtdfc/contractor/parser"
 )
 
-func printError(err BaseError, code string) {
+func printError(err p.BaseError, code string) {
 	if err == nil {
 		return
 	}
@@ -58,7 +61,7 @@ func main() {
 	model LoginDTO{
 		@Private
 		@Optional
-		@IsEmail
+		@IsEmail("shssjs")
 		String email
 		
 		@Required
@@ -71,7 +74,7 @@ func main() {
 		T Hello
 	}
 	`
-	lexer := NewLexer()
+	lexer := p.NewLexer()
 	tokens, err := lexer.Parse(code, "<test>")
 
 	if err != nil {
@@ -83,20 +86,20 @@ func main() {
 		fmt.Printf("Token: %s |Loc: %s\n", tok.ToString(), tok.Loc.ToString())
 	}
 
-	parser := NewParser()
+	parser := p.NewParser()
 	ast, err := parser.Parse(tokens, "h")
 	if err != nil {
 		printError(err, code)
 	}
-	PrintAST(ast, 1)
+	p.PrintAST(ast, 1)
 
-	typeChecker := NewTypeChecker()
+	typeChecker := p.NewTypeChecker()
 	err = typeChecker.Check(ast)
 	if err != nil {
 		printError(err, code)
 	}
 
-	tsGenerator := NewTypescriptGenerator()
+	tsGenerator := g.NewTypescriptGenerator()
 	code, err = tsGenerator.Generate(ast)
 	if err != nil {
 		printError(err, code)

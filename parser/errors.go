@@ -1,10 +1,11 @@
-package main
+package parser
 
 import (
 	"errors"
 )
 
 type BaseError interface {
+	error
 	GetName() string
 	GetMessage() string
 	GetLocation() *ErrorLocation

@@ -1,4 +1,4 @@
-package main
+package parser
 
 type Lexer struct{}
 
@@ -137,7 +137,7 @@ func (l *Lexer) GetStringToken(scanner *Scanner, allowNewline bool, matcher rune
 	marker.MarkEnd()
 	scanner.Next()
 
-	literal := string(scanner.Code[startIdx:scanner.Index])
+	literal := string(scanner.Code[startIdx : scanner.Index-1])
 	loc, _ := marker.GetLocation()
 
 	return NewToken(TOKEN_STRING, literal, loc), nil

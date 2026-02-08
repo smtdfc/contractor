@@ -1,4 +1,4 @@
-package main
+package parser
 
 // "fmt"
 
@@ -170,7 +170,7 @@ func (p *Parser) ParseType(scanner *TokenScanner) (*TypeDeclarationNode, BaseErr
 	}
 
 	endToken = startToken
-	var generic Node
+	var generic Node = nil
 	if scanner.Current.Match(TOKEN_OPERATOR, "<") {
 		scanner.Next()
 		generic, err = p.ParseType(scanner)

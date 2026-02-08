@@ -1,4 +1,4 @@
-package main
+package parser
 
 type PositionMarker struct {
 	Scanner *Scanner
@@ -51,24 +51,20 @@ func (s *Scanner) CreateMarker() *PositionMarker {
 
 func (s *Scanner) Next() rune {
 	if s.Current == '\n' {
-		s.Line += 1
+		s.Line++
 		s.Column = 1
-	} else if s.Current != 0 && s.Current != '\r' {
-		s.Column += 1
+	} else if s.Index >= 0 && s.Current != '\r' {
+		s.Column++
 	}
 
-	s.Index += 1
+	s.Index++
+
 	if s.Index >= len(s.Code) {
 		s.Current = 0
 		return 0
 	}
 
 	s.Current = s.Code[s.Index]
-
-	if s.Index == 0 {
-		s.Line = 1
-		s.Column = 1
-	}
 
 	return s.Current
 }
