@@ -145,9 +145,11 @@ func (g *TypescriptGenerator) Generate(ast *parser.AST) (string, parser.BaseErro
 func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (string, parser.BaseError) {
 	cb := NewCodeBuffer(2)
 
+	modelType := node.Name
 	genericCode := ""
 	if node.TypeVar != nil {
 		genericCode, _ = g.GenerateType(node.TypeVar)
+		modelType += genericCode
 	}
 
 	cb.WriteLine("export class %s%s {", node.Name, genericCode)
@@ -155,7 +157,7 @@ func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (st
 
 	isGlobalData, _ := g.GetAnnotation(node.Annotations, "Data")
 	isCreateConstructor, _ := g.GetAnnotation(node.Annotations, "CreateConstructor")
-
+	isCreateMapper, _ := g.GetAnnotation(node.Annotations, "CreateMapper")
 	for _, field := range node.Fields {
 		fType, _ := g.GenerateType(field.Type)
 		access := "public"
@@ -202,7 +204,12 @@ func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (st
 		hasSetter, _ := g.GetAnnotation(field.Annotations, "Setter")
 
 		if isGlobalData != nil || hasGetter != nil {
-			cb.WriteLine("public get%s(): %s {", pName, fType)
+			optionalPart := ""
+			if opt, _ := g.GetAnnotation(field.Annotations, "Optional"); opt != nil {
+				optionalPart = "|undefined"
+			}
+
+			cb.WriteLine("public get%s(): %s%s {", pName, fType, optionalPart)
 			cb.Indent()
 			cb.WriteLine("return this.%s;", field.Name)
 			cb.Outdent()
@@ -219,6 +226,10 @@ func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (st
 		}
 	}
 
+	if isCreateMapper != nil {
+		cb.WriteString(g.GenerateMapper(node, modelType))
+	}
+
 	cb.WriteString(g.GenerateStaticValidate(node.Fields))
 
 	cb.Outdent()
@@ -226,6 +237,108 @@ func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (st
 	return cb.String(), nil
 }
 
+func (g *TypescriptGenerator) GenerateMapper(node *parser.ModelStatementNode, modelType string) string {
+	cb := NewCodeBuffer(2)
+	cb.Indent()
+
+	typeVarName := "T"
+	if node.TypeVar != nil {
+		typeVarName = node.TypeVar.Name // Assuming node.TypeVar has a Name field
+	}
+
+	isCreateConstructor, _ := g.GetAnnotation(node.Annotations, "CreateConstructor")
+
+	cb.WriteLine("public static fromObject<%s>(obj: any): %s<%s> {", typeVarName, node.Name, typeVarName)
+	cb.Indent()
+
+	if isCreateConstructor != nil {
+		cb.WriteLine("const result = new (this as new (...args: any[]) => %s<%s>)(...([] as any));", node.Name, typeVarName)
+	} else {
+		cb.WriteLine("const result = new (this as new () => %s<%s>)();", node.Name, typeVarName)
+	}
+	cb.WriteString("\n")
+
+	for _, field := range node.Fields {
+		sourceKey := field.Name
+		if mappingAnno, _ := g.GetAnnotation(field.Annotations, "Mapping"); mappingAnno != nil {
+			if len(mappingAnno.Args) > 0 {
+				if literal, ok := mappingAnno.Args[0].(*parser.LiteralNode); ok {
+					sourceKey = literal.Value
+				}
+			}
+		}
+
+		cb.WriteLine("if (obj['%s'] != null) {", sourceKey)
+		cb.Indent()
+		cb.WriteLine("result.%s = obj['%s'];", field.Name, sourceKey)
+		cb.Outdent()
+
+		// if defAnno, _ := g.GetAnnotation(field.Annotations, "Default"); defAnno != nil {
+		// 	if len(defAnno.Args) > 0 {
+		// 		if literal, ok := defAnno.Args[0].(*parser.LiteralNode); ok {
+		// 			cb.WriteLine("} else {")
+		// 			cb.Indent()
+		// 			val := literal.Value
+		// 			if _, isPrimitive := TypescriptPrimitiveTypes[literal.Value]; !isPrimitive && literal.Type == parser.TOKEN_STRING {
+		// 				val = fmt.Sprintf("'%s'", val)
+		// 			}
+		// 			cb.WriteLine("result.%s = %s;", field.Name, val)
+		// 			cb.Outdent()
+		// 		}
+		// 	}
+		// }
+
+		cb.WriteLine("}")
+	}
+
+	cb.WriteLine("return result;")
+	cb.Outdent()
+	cb.WriteLine("}")
+	cb.WriteString("\n")
+
+	cb.WriteLine("public toObject(): Record<string, any> {")
+	cb.Indent()
+	cb.WriteLine("const result: Record<string, any> = {};")
+	cb.WriteString("\n")
+
+	for _, field := range node.Fields {
+		targetKey := field.Name
+		if mappingAnno, _ := g.GetAnnotation(field.Annotations, "Mapping"); mappingAnno != nil {
+			if len(mappingAnno.Args) > 0 {
+				if literal, ok := mappingAnno.Args[0].(*parser.LiteralNode); ok {
+					targetKey = literal.Value
+				}
+			}
+		}
+
+		cb.WriteLine("if (this.%s !== undefined) {", field.Name)
+		cb.Indent()
+
+		cb.WriteLine("const val = this.%s as any;", field.Name)
+		cb.WriteLine("if (val?.toObject && typeof val.toObject === 'function') {")
+		cb.Indent()
+		cb.WriteLine("result['%s'] = val.toObject();", targetKey)
+		cb.Outdent()
+		cb.WriteLine("} else if (Array.isArray(val)) {")
+		cb.Indent()
+		cb.WriteLine("result['%s'] = val.map((item: any) => item?.toObject?.() ?? item);", targetKey)
+		cb.Outdent()
+		cb.WriteLine("} else {")
+		cb.Indent()
+		cb.WriteLine("result['%s'] = val;", targetKey)
+		cb.Outdent()
+		cb.WriteLine("}")
+
+		cb.Outdent()
+		cb.WriteLine("}")
+	}
+	cb.WriteString("\n")
+	cb.WriteLine("return result;")
+	cb.Outdent()
+	cb.WriteLine("}")
+
+	return cb.String()
+}
 func (g *TypescriptGenerator) GenerateStaticValidate(fields []*parser.ModelFieldNode) string {
 	cb := NewCodeBuffer(2)
 	cb.Indent()

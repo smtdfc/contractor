@@ -62,6 +62,7 @@ func main() {
 		@Private
 		@Optional
 		@IsEmail("shssjs")
+		@Default(100)
 		String email
 		
 		@Required
@@ -69,16 +70,21 @@ func main() {
 	}
 	
 	@Data
+	@CreateMapper
 	model Response<T>{
+		@Mapping("kk")
 		Array<T> Data
 		T Hello
 	}
+
+	
 	`
 	lexer := p.NewLexer()
 	tokens, err := lexer.Parse(code, "<test>")
 
 	if err != nil {
 		printError(err, code)
+		return
 	}
 
 	for _, tok := range tokens {
@@ -90,6 +96,7 @@ func main() {
 	ast, err := parser.Parse(tokens, "h")
 	if err != nil {
 		printError(err, code)
+		return
 	}
 	p.PrintAST(ast, 1)
 
