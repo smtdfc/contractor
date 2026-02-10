@@ -13,13 +13,25 @@ export default defineConfig({
     sidebar: {
       "/docs/": [
         {
-          text: "Hướng dẫn",
+          text: "Hướng dẫn bắt đầu",
           collapsed: false,
           items: [
             { text: "Bắt đầu", link: "/docs/getting-started" },
             { text: "Cài đặt", link: "/docs/installation" },
             { text: "Hướng dẫn cấu hình", link: "/docs/configuration" },
             { text: "Biên dịch", link: "/docs/generate" },
+          ],
+        },
+        {
+          text: "Model",
+          collapsed: false,
+          items: [
+            { text: "Tạo model", link: "/docs/model/create" },
+            { text: "Annotations", link: "/docs/model/annotations" },
+            {
+              text: "Field Annotations",
+              link: "/docs/model/field-annotations",
+            },
           ],
         },
       ],
