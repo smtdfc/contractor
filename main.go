@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	g "github.com/smtdfc/contractor/generator"
+	"github.com/spf13/cobra"
+
+	// g "github.com/smtdfc/contractor/generator"
+	"github.com/smtdfc/contractor/cmd"
 	p "github.com/smtdfc/contractor/parser"
 )
 
@@ -55,62 +58,71 @@ func printError(err p.BaseError, code string) {
 }
 
 func main() {
-	code := `
-	@CreateConstructor
-	@Data
-	model LoginDTO{
-		@Private
-		@Optional
-		@IsEmail("shssjs")
-		@Default(100)
-		String email
-		
-		@Required
-		String password
-	}
-	
-	@Data
-	@CreateMapper
-	model Response<T>{
-		@Mapping("kk")
-		Array<T> Data
-		T Hello
+	// code := `
+	// @CreateConstructor
+	// @Data
+	// model LoginDTO{
+	// 	@Private
+	// 	@Optional
+	// 	@IsEmail("shssjs")
+	// 	@Default(100)
+	// 	String email
+
+	// 	@Required
+	// 	String password
+	// }
+
+	// @Data
+	// @CreateMapper
+	// model Response<T>{
+	// 	@Mapping("kk")
+	// 	Array<T> Data
+	// 	T Hello
+	// }
+
+	// `
+	// lexer := p.NewLexer()
+	// tokens, err := lexer.Parse(code, "<test>")
+
+	// if err != nil {
+	// 	printError(err, code)
+	// 	return
+	// }
+
+	// for _, tok := range tokens {
+	// 	fmt.Println(tok.Loc)
+	// 	fmt.Printf("Token: %s |Loc: %s\n", tok.ToString(), tok.Loc.ToString())
+	// }
+
+	// parser := p.NewParser()
+	// ast, err := parser.Parse(tokens, "h")
+	// if err != nil {
+	// 	printError(err, code)
+	// 	return
+	// }
+	// p.PrintAST(ast, 1)
+
+	// typeChecker := p.NewTypeChecker()
+	// err = typeChecker.Check(ast)
+	// if err != nil {
+	// 	printError(err, code)
+	// }
+
+	// tsGenerator := g.NewTypescriptGenerator()
+	// code, err = tsGenerator.Generate(ast)
+	// if err != nil {
+	// 	printError(err, code)
+	// }
+
+	// fmt.Println(code)
+
+	var rootCmd = &cobra.Command{
+		Use:     "contractor",
+		Short:   "Type-Safe IDL & Code Generation Toolchain",
+		Long:    "Contractor is a specialized Interface Definition Language (IDL) designed to enforce data integrity across distributed systems. It provides a robust mechanism to define cross-platform data contracts, generating validated and idiomatic code for TypeScript and Go, eliminating the risks of manual synchronization.",
+		Version: "1.0.0",
 	}
 
-	
-	`
-	lexer := p.NewLexer()
-	tokens, err := lexer.Parse(code, "<test>")
-
-	if err != nil {
-		printError(err, code)
-		return
-	}
-
-	for _, tok := range tokens {
-		fmt.Println(tok.Loc)
-		fmt.Printf("Token: %s |Loc: %s\n", tok.ToString(), tok.Loc.ToString())
-	}
-
-	parser := p.NewParser()
-	ast, err := parser.Parse(tokens, "h")
-	if err != nil {
-		printError(err, code)
-		return
-	}
-	p.PrintAST(ast, 1)
-
-	typeChecker := p.NewTypeChecker()
-	err = typeChecker.Check(ast)
-	if err != nil {
-		printError(err, code)
-	}
-
-	tsGenerator := g.NewTypescriptGenerator()
-	code, err = tsGenerator.Generate(ast)
-	if err != nil {
-		printError(err, code)
-	}
-
-	fmt.Println(code)
+	rootCmd.AddCommand(cmd.InitCommand)
+	rootCmd.Execute()
 }
