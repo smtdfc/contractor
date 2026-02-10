@@ -112,7 +112,7 @@ model User {
 Sau khi đã định nghĩa xong interface, bạn sử dụng lệnh `gen` để biên dịch file này sang ngôn ngữ lập trình mong muốn.
 
 ```bash
-contractor gen . -lang=ts
+contractor generate
 
 ```
 

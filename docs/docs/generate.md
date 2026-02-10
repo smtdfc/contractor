@@ -11,7 +11,7 @@ Sau khi đã định nghĩa các schema và hoàn tất file cấu hình `contra
 Sử dụng lệnh sau tại thư mục gốc của dự án (nơi đặt file cấu hình):
 
 ```bash
-contractor gen .
+contractor generate
 
 ```
 
@@ -28,19 +28,11 @@ contractor gen --config ./configs/my-custom-config.json
 
 ```
 
-- **Chỉ định ngôn ngữ mục tiêu (Target Languages):**
-  (Lệnh này sẽ ghi đè thuộc tính `"lang"` trong file json)
-
-```bash
-contractor gen . --lang ts
-
-```
-
 - **Chế độ Watch (Theo dõi thay đổi):**
   Tự động biên dịch lại mỗi khi bạn nhấn `Ctrl + S` lưu file `.ctr`:
 
 ```bash
-contractor gen . --watch
+contractor generate . --watch
 
 ```
 

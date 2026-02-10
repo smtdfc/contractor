@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 )
@@ -22,6 +23,41 @@ func WriteTextFile(filePath string, content string) error {
 	}
 
 	err = os.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type Config struct {
+	Source string   `json:"source"`
+	Output string   `json:"output"`
+	Lang   []string `json:"lang"`
+}
+
+func LoadConfig(filePath string) (*Config, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var config Config
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+func SaveConfig(filePath string, config *Config) error {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(filePath, data, 0644)
 	if err != nil {
 		return err
 	}
