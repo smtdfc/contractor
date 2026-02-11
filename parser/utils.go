@@ -7,6 +7,38 @@ import (
 	"unicode"
 )
 
+func AnyToCamelCase(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+
+	var builder strings.Builder
+	upperNext := false
+
+	runes := []rune(s)
+
+	for i, r := range runes {
+		if r == '_' || r == '-' || r == ' ' {
+			upperNext = true
+			continue
+		}
+
+		if upperNext {
+			builder.WriteRune(unicode.ToUpper(r))
+			upperNext = false
+		} else {
+			if i == 0 {
+				builder.WriteRune(unicode.ToLower(r))
+			} else {
+				builder.WriteRune(r)
+			}
+		}
+	}
+
+	return builder.String()
+}
+
 func AnyToPascalCase(s string) string {
 	if s == "" {
 		return ""

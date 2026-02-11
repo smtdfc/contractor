@@ -15,39 +15,6 @@ var TypescriptPrimitiveTypes = map[string]string{
 	"Any":    "any",
 }
 
-var SupportedValidators = map[string]bool{
-	"IsEmail":       true,
-	"Max":           true,
-	"Min":           true,
-	"IsInt":         true,
-	"IsFloat":       true,
-	"IsBoolean":     true,
-	"IsString":      true,
-	"IsDateString":  true,
-	"IsUUID":        true,
-	"IsUrl":         true,
-	"IsArray":       true,
-	"MinLength":     true,
-	"MaxLength":     true,
-	"Length":        true,
-	"IsNotEmpty":    true,
-	"ArrayMinSize":  true,
-	"ArrayMaxSize":  true,
-	"ArrayLength":   true,
-	"IsPhoneNumber": true,
-}
-
-type FieldValidateRule struct {
-	RuleName string
-	Value    string
-	Message  string
-}
-
-type FieldValidationMetadata struct {
-	Name  string
-	Rules []FieldValidateRule
-}
-
 type TypescriptGenerator struct{}
 
 func NewTypescriptGenerator() *TypescriptGenerator {
@@ -87,18 +54,18 @@ func (g *TypescriptGenerator) GenerateType(node parser.Node) (string, parser.Bas
 	return "", nil
 }
 
-func (g *TypescriptGenerator) ExtractValidationMetadata(node *parser.ModelFieldNode) FieldValidationMetadata {
-	metadata := FieldValidationMetadata{
+func (g *TypescriptGenerator) ExtractValidationMetadata(node *parser.ModelFieldNode) helpers.FieldValidationMetadata {
+	metadata := helpers.FieldValidationMetadata{
 		Name:  node.Name,
-		Rules: make([]FieldValidateRule, 0),
+		Rules: make([]helpers.FieldValidateRule, 0),
 	}
 	if node.Annotations == nil {
 		return metadata
 	}
 
 	for _, anno := range node.Annotations.List {
-		if SupportedValidators[anno.Name] {
-			rule := FieldValidateRule{RuleName: anno.Name}
+		if helpers.SupportedValidators[anno.Name] {
+			rule := helpers.FieldValidateRule{RuleName: anno.Name}
 			if anno.Name == "IsEmail" || anno.Name == "IsNotEmpty" {
 				if len(anno.Args) > 0 {
 					rule.Message = anno.Args[0].(*parser.LiteralNode).Value
