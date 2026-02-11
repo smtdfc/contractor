@@ -13,7 +13,7 @@ var GoPrimitiveTypes = map[string]string{
 	"Bool":   "bool",
 	"Null":   "nil",
 	"Any":    "interface{}",
-	"Array":  "Contractor.Array",
+	"Array":  "ContractorRuntime.Array",
 	"Map":    "map[string]interface{}",
 }
 
@@ -22,6 +22,31 @@ type GoGenerator struct{}
 func NewGoGenerator() *GoGenerator {
 	return &GoGenerator{}
 }
+
+func (g *GoGenerator) ExtractValidationMetadata(node *parser.ModelFieldNode) helpers.FieldValidationMetadata {
+	metadata := helpers.FieldValidationMetadata{
+		Name:  node.Name,
+		Rules: make([]helpers.FieldValidateRule, 0),
+	}
+	if node.Annotations == nil {
+		return metadata
+	}
+
+	for _, anno := range node.Annotations.List {
+		if validator, ok := parser.SupportedFieldValidatorAnnotations[anno.Name]; ok {
+			rule := helpers.FieldValidateRule{RuleName: anno.Name}
+			if len(anno.Args) > validator.Args-1 {
+				rule.Message = anno.Args[validator.Args-1].(*parser.LiteralNode).Value
+			}
+			if validator.Args >= 2 && len(anno.Args) >= 2 {
+				rule.Value = anno.Args[0].(*parser.LiteralNode).Value
+			}
+			metadata.Rules = append(metadata.Rules, rule)
+		}
+	}
+	return metadata
+}
+
 func (g *GoGenerator) GenerateType(node parser.Node, constraint bool) (string, parser.BaseError) {
 	switch v := node.(type) {
 	case *parser.TypeVarNode:
@@ -61,20 +86,13 @@ func (g *GoGenerator) GetAnnotation(node *parser.AnnotationChainNode, name strin
 
 func (g *GoGenerator) GenerateModel(node *parser.ModelStatementNode) (string, parser.BaseError) {
 	cb := helpers.NewCodeBuffer(2)
-	// for _, field := range node.Fields {
-	// 	fieldName := parser.AnyToPascalCase(field.Name)
-	// 	fieldType := helpers.MapTypeToGo(field.Type)
-	// 	cb.WriteLine("%s %s `json:\"%s\"`", fieldName, fieldType, field.Name)
-	// }
-	// cb.WriteLine("}")
-	// cb.WriteString("\n")
+
 	modelName := parser.AnyToPascalCase(node.Name)
 	modelType := node.Name
 	genericCode := ""
 	if node.TypeVar != nil {
 		genericCode, _ = g.GenerateType(node.TypeVar, false)
 		modelType += genericCode
-
 		genericCode, _ = g.GenerateType(node.TypeVar, true)
 		modelName += genericCode
 	}
@@ -164,16 +182,72 @@ func (g *GoGenerator) GenerateModel(node *parser.ModelStatementNode) (string, pa
 			cb.WriteLine("}")
 			cb.WriteString("\n")
 		}
-
 	}
 
 	cb.WriteString("\n")
+	cb.WriteString(g.GenerateStaticValidate(node.Fields, modelName, modelType))
 	return cb.String(), nil
+}
+
+func (g *GoGenerator) GenerateStaticValidate(fields []*parser.ModelFieldNode, modelName string, modelType string) string {
+	cb := helpers.NewCodeBuffer(2)
+	cb.Indent()
+
+	cb.WriteLine("func Validate%s(obj *%s) error {", modelName, modelType)
+	cb.Indent()
+	cb.WriteLine("var errors map[string]string = make(map[string]string)")
+	cb.WriteString("\n")
+	for _, field := range fields {
+		isOptional, _ := g.GetAnnotation(field.Annotations, "Optional")
+
+		pName := parser.AnyToPascalCase(field.Name)
+
+		if priv, _ := g.GetAnnotation(field.Annotations, "Private"); priv != nil {
+			pName = parser.AnyToCamelCase(field.Name)
+		}
+
+		if isOptional == nil {
+			cb.WriteLine("if (!ContractorRuntime.IsRequired(obj.%s)) {", pName)
+			cb.Indent()
+			cb.WriteLine("errors[\"%s\"] = \"%s is required\";", field.Name, field.Name)
+			cb.Outdent()
+			cb.WriteLine("}")
+		}
+
+		metadata := g.ExtractValidationMetadata(field)
+		if len(metadata.Rules) > 0 {
+			for _, rule := range metadata.Rules {
+				valPart := ""
+				if rule.Value != "" {
+					valPart = ", " + rule.Value
+				}
+
+				cb.WriteLine("if (!ContractorRuntime.%s(obj.%s%s)) {", rule.RuleName, pName, valPart)
+				cb.Indent()
+				cb.WriteLine("errors[\"%s\"] = \"%s\";", field.Name, rule.Message)
+				cb.Outdent()
+				cb.WriteLine("}")
+			}
+		}
+	}
+
+	cb.WriteString("\n")
+	cb.WriteLine("if (len(errors) > 0) {")
+	cb.Indent()
+	cb.WriteLine("return ContractorRuntime.NewValidationError(errors)")
+	cb.Outdent()
+	cb.WriteLine("}")
+	cb.WriteLine("return nil")
+	cb.Outdent()
+	cb.WriteLine("}")
+	return cb.String()
 }
 
 func (g *GoGenerator) Generate(ast *parser.AST, packageName string, goModulePath string) (string, parser.BaseError) {
 	cb := helpers.NewCodeBuffer(2)
 	cb.WriteLine("package %s", packageName)
+	cb.WriteString("\n")
+	cb.WriteLine("import ContractorRuntime \"%s\"", "github.com/smtdfc/contractor/runtime/go")
 	cb.WriteString("\n")
 
 	for _, stat := range ast.Statements {

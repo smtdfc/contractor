@@ -64,18 +64,15 @@ func (g *TypescriptGenerator) ExtractValidationMetadata(node *parser.ModelFieldN
 	}
 
 	for _, anno := range node.Annotations.List {
-		if helpers.SupportedValidators[anno.Name] {
+		if validator, ok := parser.SupportedFieldValidatorAnnotations[anno.Name]; ok {
 			rule := helpers.FieldValidateRule{RuleName: anno.Name}
-			if anno.Name == "IsEmail" || anno.Name == "IsNotEmpty" {
-				if len(anno.Args) > 0 {
-					rule.Message = anno.Args[0].(*parser.LiteralNode).Value
-					metadata.Rules = append(metadata.Rules, rule)
-				}
-			} else if len(anno.Args) >= 2 {
-				rule.Value = anno.Args[0].(*parser.LiteralNode).Value
-				rule.Message = anno.Args[1].(*parser.LiteralNode).Value
-				metadata.Rules = append(metadata.Rules, rule)
+			if len(anno.Args) > validator.Args-1 {
+				rule.Message = anno.Args[validator.Args-1].(*parser.LiteralNode).Value
 			}
+			if validator.Args >= 2 && len(anno.Args) >= 2 {
+				rule.Value = anno.Args[0].(*parser.LiteralNode).Value
+			}
+			metadata.Rules = append(metadata.Rules, rule)
 		}
 	}
 	return metadata
