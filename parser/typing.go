@@ -2,7 +2,49 @@ package parser
 
 import (
 	"reflect"
+	"slices"
+	"strconv"
 )
+
+type Annotation struct {
+	TypeName []string
+	Args     int
+}
+
+var SupportedFieldValidatorAnnotations = map[string]Annotation{
+	"IsInt":     {[]string{"Any"}, 1},
+	"IsFloat":   {[]string{"Any"}, 1},
+	"IsBoolean": {[]string{"Any"}, 1},
+	"IsString":  {[]string{"Any"}, 1},
+	"IsArray":   {[]string{"Any"}, 1},
+
+	"IsEmail":       {[]string{"String"}, 1},
+	"IsNotEmpty":    {[]string{"String"}, 1},
+	"IsPhoneNumber": {[]string{"String"}, 1},
+	"IsDateString":  {[]string{"String"}, 1},
+	"IsUUID":        {[]string{"String"}, 1},
+	"IsUrl":         {[]string{"String"}, 1},
+
+	"Max":       {[]string{"Number"}, 2},
+	"Min":       {[]string{"Number"}, 2},
+	"MinLength": {[]string{"String"}, 2},
+	"MaxLength": {[]string{"String"}, 2},
+	"Length":    {[]string{"String"}, 2},
+
+	"ArrayMinSize": {[]string{"Array"}, 2},
+	"ArrayMaxSize": {[]string{"Array"}, 2},
+	"ArrayLength":  {[]string{"Array"}, 2},
+}
+
+var SupportedFieldAnnotations = map[string]Annotation{
+	"Optional": {[]string{}, 0},
+}
+
+var SupportedModelAnnotations = map[string]Annotation{
+	"CreateConstructor": {[]string{}, 0},
+	"Mapper":            {[]string{}, 0},
+	"Data":              {[]string{}, 0},
+}
 
 type SymbolType int
 
@@ -91,6 +133,84 @@ var globalCtx = CreateGlobalContext()
 
 type TypeChecker struct{}
 
+func (c *TypeChecker) CheckFieldAnnotation(node *ModelFieldNode) BaseError {
+
+	if node.Annotations == nil {
+		return nil
+	}
+
+	for _, anno := range node.Annotations.List {
+		if validator, ok := SupportedFieldValidatorAnnotations[anno.Name]; ok {
+			if len(validator.TypeName) > 0 && !slices.Contains(validator.TypeName, "Any") && !slices.Contains(validator.TypeName, node.Type.Name) {
+				return NewTypeError(
+					"Validator "+anno.Name+" cannot be applied to type "+node.Type.Name,
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+
+			if len(anno.Args) < validator.Args {
+				return NewTypeError(
+					"Validator "+anno.Name+" requires "+strconv.Itoa(validator.Args)+" arguments",
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+		} else if fieldAnno, ok := SupportedFieldAnnotations[anno.Name]; ok {
+			if len(fieldAnno.TypeName) > 0 && !slices.Contains(fieldAnno.TypeName, "Any") && !slices.Contains(fieldAnno.TypeName, node.Type.Name) {
+				return NewTypeError(
+					"Annotation "+anno.Name+" cannot be applied to type "+node.Type.Name,
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+
+			if len(anno.Args) < fieldAnno.Args {
+				return NewTypeError(
+					"Validator "+anno.Name+" requires "+strconv.Itoa(validator.Args)+" arguments",
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+		} else {
+			return NewTypeError(
+				"Unsupported annotation "+anno.Name+" on field "+node.Name,
+				anno.Loc.GetErrorLocation(),
+			)
+		}
+	}
+
+	return nil
+}
+
+func (c *TypeChecker) CheckModelAnnotation(node *ModelStatementNode) BaseError {
+
+	if node.Annotations == nil {
+		return nil
+	}
+
+	for _, anno := range node.Annotations.List {
+		if modelAnno, ok := SupportedModelAnnotations[anno.Name]; ok {
+			if len(modelAnno.TypeName) > 0 && !slices.Contains(modelAnno.TypeName, "Any") && !slices.Contains(modelAnno.TypeName, node.Name) {
+				return NewTypeError(
+					"Annotation "+anno.Name+" cannot be applied to model "+node.Name,
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+
+			if len(anno.Args) < modelAnno.Args {
+				return NewTypeError(
+					"Validator "+anno.Name+" requires "+strconv.Itoa(modelAnno.Args)+" arguments",
+					anno.Loc.GetErrorLocation(),
+				)
+			}
+		} else {
+			return NewTypeError(
+				"Unsupported annotation "+anno.Name+" on model "+node.Name,
+				anno.Loc.GetErrorLocation(),
+			)
+		}
+	}
+
+	return nil
+}
+
 func (c *TypeChecker) CheckType(ctx *Context, t *TypeDeclarationNode) BaseError {
 	if t == nil {
 		return nil
@@ -113,6 +233,11 @@ func (c *TypeChecker) CheckType(ctx *Context, t *TypeDeclarationNode) BaseError 
 
 func (c *TypeChecker) CheckModelField(parentCtx *Context, node *ModelFieldNode) BaseError {
 	err := c.CheckType(parentCtx, node.Type)
+	if err != nil {
+		return err
+	}
+
+	err = c.CheckFieldAnnotation(node)
 	if err != nil {
 		return err
 	}
@@ -152,6 +277,11 @@ func (c *TypeChecker) CheckModelStatement(parentCtx *Context, node *ModelStateme
 		}
 	}
 
+	err := c.CheckModelAnnotation(node)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -159,9 +289,9 @@ func (c *TypeChecker) Check(ast *AST) BaseError {
 	ctx := NewContext()
 	ctx.Parent = globalCtx
 	for _, node := range ast.Statements {
-		switch node.(type) {
+		switch v := node.(type) {
 		case *ModelStatementNode:
-			err := c.CheckModelStatement(ctx, node.(*ModelStatementNode))
+			err := c.CheckModelStatement(ctx, v)
 			if err != nil {
 				return err
 			}
