@@ -2,34 +2,10 @@ package generator
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/smtdfc/contractor/generator/helpers"
 	"github.com/smtdfc/contractor/parser"
 )
-
-type CodeBuffer struct {
-	strings.Builder
-	indentSize  int
-	indentLevel int
-}
-
-func NewCodeBuffer(indentSize int) *CodeBuffer {
-	return &CodeBuffer{indentSize: indentSize}
-}
-
-func (cb *CodeBuffer) Indent() { cb.indentLevel++ }
-func (cb *CodeBuffer) Outdent() {
-	if cb.indentLevel > 0 {
-		cb.indentLevel--
-	}
-}
-
-func (cb *CodeBuffer) WriteLine(format string, args ...interface{}) {
-	indent := strings.Repeat(" ", cb.indentLevel*cb.indentSize)
-	cb.WriteString(indent)
-	fmt.Fprintf(&cb.Builder, format, args...)
-	cb.WriteString("\n")
-}
 
 var TypescriptPrimitiveTypes = map[string]string{
 	"String": "string",
@@ -139,8 +115,8 @@ func (g *TypescriptGenerator) ExtractValidationMetadata(node *parser.ModelFieldN
 }
 
 func (g *TypescriptGenerator) Generate(ast *parser.AST) (string, parser.BaseError) {
-	cb := NewCodeBuffer(2)
-	cb.WriteLine("import {ContractorRuntime} from 'contractor';")
+	cb := helpers.NewCodeBuffer(2)
+	cb.WriteLine("import {ContractorRuntime} from '@smtdfc/contractor';")
 	cb.WriteString("\n")
 
 	for _, stat := range ast.Statements {
@@ -156,7 +132,7 @@ func (g *TypescriptGenerator) Generate(ast *parser.AST) (string, parser.BaseErro
 }
 
 func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (string, parser.BaseError) {
-	cb := NewCodeBuffer(2)
+	cb := helpers.NewCodeBuffer(2)
 
 	modelType := node.Name
 	genericCode := ""
@@ -251,7 +227,7 @@ func (g *TypescriptGenerator) GenerateModel(node *parser.ModelStatementNode) (st
 }
 
 func (g *TypescriptGenerator) GenerateMapper(node *parser.ModelStatementNode, modelType string) string {
-	cb := NewCodeBuffer(2)
+	cb := helpers.NewCodeBuffer(2)
 	cb.Indent()
 
 	typeVarName := "T"
@@ -353,7 +329,7 @@ func (g *TypescriptGenerator) GenerateMapper(node *parser.ModelStatementNode, mo
 	return cb.String()
 }
 func (g *TypescriptGenerator) GenerateStaticValidate(fields []*parser.ModelFieldNode) string {
-	cb := NewCodeBuffer(2)
+	cb := helpers.NewCodeBuffer(2)
 	cb.Indent()
 
 	cb.WriteLine("public static validate(obj: any): ContractorRuntime.ValidationError | null {")

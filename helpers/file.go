@@ -30,10 +30,15 @@ func WriteTextFile(filePath string, content string) error {
 	return nil
 }
 
+type EntryConfig struct {
+	Source  string `json:"source"`
+	Output  string `json:"output"`
+	Lang    string `json:"lang"`
+	PkgName string `json:"packageName"`
+}
+
 type Config struct {
-	Source string   `json:"source"`
-	Output string   `json:"output"`
-	Lang   []string `json:"lang"`
+	Entries []EntryConfig `json:"entries"`
 }
 
 func LoadConfig(filePath string) (*Config, error) {

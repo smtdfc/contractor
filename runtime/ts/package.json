@@ -1,0 +1,25 @@
+{
+  "name": "@smtdfc/contractor",
+  "version": "0.0.1",
+  "description": "Runtime library for Contractor",
+  "license": "MIT",
+  "author": "smtdfc <me.smtdfc@gmail.com>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {},
+  "files": [
+    "dist"
+  ]
+}

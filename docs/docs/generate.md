@@ -15,7 +15,7 @@ contractor generate
 
 ```
 
-Trong đó, dấu `.` đại diện cho thư mục hiện tại. Contractor sẽ tự động tìm kiếm file `contractor.config.json` để thực hiện việc quét các schema và đẻ code vào thư mục `output` đã cấu hình.
+Contractor sẽ tự động tìm kiếm file `contractor.config.json` để thực hiện việc quét các schema và đẻ code vào thư mục `output` đã cấu hình.
 
 ### 2. Các tùy chọn nâng cao (CLI Flags)
 
@@ -24,15 +24,15 @@ Trong trường hợp bạn muốn ghi đè cấu hình hoặc chỉ định fil
 - **Chỉ định file cấu hình khác:**
 
 ```bash
-contractor gen --config ./configs/my-custom-config.json
+contractor generate --config ./configs/my-custom-config.json
 
 ```
 
 - **Chế độ Watch (Theo dõi thay đổi):**
-  Tự động biên dịch lại mỗi khi bạn nhấn `Ctrl + S` lưu file `.ctr`:
+  Tự động biên dịch lại mỗi khi bạn nhấn `Ctrl + S` lưu file `.contract`:
 
 ```bash
-contractor generate . --watch
+contractor generate --watch
 
 ```
 
@@ -40,7 +40,7 @@ contractor generate . --watch
 
 Khi bạn thực hiện lệnh `gen`, Contractor sẽ thực hiện quy trình 3 bước khép kín:
 
-1. **Parsing**: Quét toàn bộ thư mục trong `dir`, đọc các file `.ctr` và phân tích cú pháp để xây dựng cây thực thể (Abstract Syntax Tree - AST).
+1. **Parsing**: Quét toàn bộ thư mục trong `dir`, đọc các file `.contract` và phân tích cú pháp để xây dựng cây thực thể (Abstract Syntax Tree - AST).
 2. **Validating**: Kiểm tra tính hợp lệ của schema (ví dụ: các kiểu dữ liệu có tồn tại không, các Annotation có đúng cú pháp không).
 3. **Emitting**: Sử dụng các Generator tương ứng (TypeScript, Go,...) để chuyển đổi AST thành các class/struct thực tế với đầy đủ validation logic và getter/setter.
 
@@ -53,7 +53,7 @@ Khi bạn thực hiện lệnh `gen`, Contractor sẽ thực hiện quy trình 3
 ```json
 {
   "scripts": {
-    "contract": "contractor gen .",
+    "contract": "contractor generate ",
     "dev": "npm run contract && vite"
   }
 }
@@ -63,7 +63,7 @@ Khi bạn thực hiện lệnh `gen`, Contractor sẽ thực hiện quy trình 3
 Chèn dòng sau vào file `main.go` của bạn:
 
 ```go
-//go:generate contractor gen .
+//go:generate contractor generate
 
 ```
 

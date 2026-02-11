@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -44,28 +44,9 @@ func ParseFile(filePath string) (*parser.AST, parser.BaseError) {
 	return ast, nil
 }
 
-func GenerateTsCode(ast *parser.AST, output string) (string, parser.BaseError) {
-	tsGenerator := generator.NewTypescriptGenerator()
-	code, err := tsGenerator.Generate(ast)
-	if err != nil {
-		return "", err
-	}
-
-	wErr := helpers.WriteTextFile(output, code)
-	if wErr != nil {
-		panic(wErr)
-	}
-
-	return code, nil
-}
-
+// runGeneration duyệt qua danh sách Entries trong cấu trúc Config mới
 func runGeneration(cmd *cobra.Command) error {
-	configFile := "contractor.config.json"
-	configFlag, _ := cmd.Flags().GetString("config")
-	if configFlag != "" {
-		configFile = configFlag
-	}
-
+	configFile, _ := cmd.Flags().GetString("config")
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -76,52 +57,60 @@ func runGeneration(cmd *cobra.Command) error {
 		return err
 	}
 
-	sourcePath := path.Join(cwd, config.Source)
+	for _, entry := range config.Entries {
+		sourcePath := path.Join(cwd, entry.Source)
 
-	err = filepath.WalkDir(sourcePath, func(filePath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !d.IsDir() && filepath.Ext(filePath) == ".contract" {
-			info, err := d.Info()
-			if err != nil || info.IsDir() {
-				return nil
+		err = filepath.WalkDir(sourcePath, func(filePath string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
 			}
 
-			ast, pErr := ParseFile(filePath)
-			if pErr != nil {
-				parser.PrintError(pErr, "")
-				return nil
-			}
-
-			relPath, rErr := filepath.Rel(sourcePath, filePath)
-			if rErr != nil {
-				return rErr
-			}
-
-			if slices.Contains(config.Lang, "ts") {
-				outputPath := filepath.Join(config.Output, relPath)
-				outputPath = outputPath[:len(outputPath)-len(".contract")] + ".ts"
-
-				_, gErr := GenerateTsCode(ast, outputPath)
-				if gErr != nil {
-					parser.PrintError(gErr, "")
+			if !d.IsDir() && filepath.Ext(filePath) == ".contract" {
+				ast, pErr := ParseFile(filePath)
+				if pErr != nil {
+					parser.PrintError(pErr, "")
 					return nil
 				}
 
-				fmt.Printf("Generated: %s -> %s\n", filePath, outputPath)
-			}
-		}
-		return nil
-	})
+				relPath, rErr := filepath.Rel(sourcePath, filePath)
+				if rErr != nil {
+					return rErr
+				}
 
+				baseName := relPath[:len(relPath)-len(".contract")]
+
+				if strings.Contains(entry.Lang, "ts") {
+					outputPath := filepath.Join(cwd, entry.Output, baseName+".ts")
+					tsGen := generator.NewTypescriptGenerator()
+					code, gErr := tsGen.Generate(ast)
+					if gErr != nil {
+						parser.PrintError(gErr, "")
+					} else {
+						helpers.WriteTextFile(outputPath, code)
+						fmt.Printf("Generated TypeScript: %s -> %s\n", filePath, outputPath)
+					}
+				}
+
+				if strings.Contains(entry.Lang, "go") {
+					outputPath := filepath.Join(cwd, entry.Output, baseName+".go")
+					goGen := generator.NewGoGenerator()
+					code, gErr := goGen.Generate(ast, entry.PkgName, "")
+					if gErr != nil {
+						parser.PrintError(gErr, "")
+					} else {
+						helpers.WriteTextFile(outputPath, code)
+						fmt.Printf("Generated Go:%s -> %s\n", filePath, outputPath)
+					}
+				}
+			}
+			return nil
+		})
+	}
 	return err
 }
 
 func GenerateCommandFn(cmd *cobra.Command, args []string) error {
-
-	fmt.Println("Starting initial generation...")
+	fmt.Println("Initial generation started...")
 	if err := runGeneration(cmd); err != nil {
 		return err
 	}
@@ -144,32 +133,33 @@ func GenerateCommandFn(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sourcePath := path.Join(cwd, config.Source)
-	filepath.WalkDir(sourcePath, func(path string, d fs.DirEntry, err error) error {
-		if d != nil && d.IsDir() {
-			return watcher.Add(path)
-		}
-		return nil
-	})
+	for _, entry := range config.Entries {
+		sourcePath := path.Join(cwd, entry.Source)
+		filepath.WalkDir(sourcePath, func(p string, d fs.DirEntry, err error) error {
+			if d != nil && d.IsDir() {
+				return watcher.Add(p)
+			}
+			return nil
+		})
+	}
 
-	fmt.Printf("Watching for changes in: %s\n", sourcePath)
+	fmt.Println("Watching for changes in defined source paths...")
 
 	var timer *time.Timer
-
 	for {
 		select {
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil
 			}
-			if (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) && filepath.Ext(event.Name) == ".contract" {
+			if (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) && strings.HasSuffix(event.Name, ".contract") {
 				if timer != nil {
 					timer.Stop()
 				}
 				timer = time.AfterFunc(100*time.Millisecond, func() {
-					fmt.Printf("\nChange detected at %s. Re-generating...\n", time.Now().Format("15:04:05"))
+					fmt.Printf("Change detected at %s. Regenerating...\n", time.Now().Format("15:04:05"))
 					if err := runGeneration(cmd); err != nil {
-						fmt.Printf("Error: %v\n", err)
+						log.Printf("Generation error: %v\n", err)
 					}
 				})
 			}
@@ -177,7 +167,7 @@ func GenerateCommandFn(cmd *cobra.Command, args []string) error {
 			if !ok {
 				return nil
 			}
-			log.Println("Watcher error:", err)
+			log.Printf("Watcher error: %v\n", err)
 		}
 	}
 }
