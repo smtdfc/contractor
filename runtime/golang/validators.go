@@ -68,6 +68,26 @@ func Max[T Number](v, max T) bool {
 	return v <= max
 }
 
+func IsRequired(v interface{}) bool {
+	if v == nil {
+		return false
+	}
+
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.String:
+		return len(strings.TrimSpace(rv.String())) > 0
+	case reflect.Array, reflect.Slice, reflect.Map:
+		return rv.Len() > 0
+	case reflect.Ptr, reflect.Interface:
+		return !rv.IsNil() && IsRequired(rv.Elem().Interface())
+	case reflect.Invalid:
+		return false
+	default:
+		return true
+	}
+}
+
 func IsInt(v interface{}) bool {
 	switch v.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
