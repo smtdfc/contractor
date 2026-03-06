@@ -247,7 +247,7 @@ func (g *GoGenerator) Generate(ast *parser.AST, packageName string, goModulePath
 	cb := helpers.NewCodeBuffer(2)
 	cb.WriteLine("package %s", packageName)
 	cb.WriteString("\n")
-	cb.WriteLine("import ContractorRuntime \"%s\"", "github.com/smtdfc/contractor/runtime/go")
+	cb.WriteLine("import ContractorRuntime \"%s\"", "github.com/smtdfc/contractor/runtime/golang")
 	cb.WriteString("\n")
 
 	for _, stat := range ast.Statements {
