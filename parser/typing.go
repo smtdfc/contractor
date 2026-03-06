@@ -143,14 +143,14 @@ func (c *TypeChecker) CheckFieldAnnotation(node *ModelFieldNode) BaseError {
 		if validator, ok := SupportedFieldValidatorAnnotations[anno.Name]; ok {
 			if len(validator.TypeName) > 0 && !slices.Contains(validator.TypeName, "Any") && !slices.Contains(validator.TypeName, node.Type.Name) {
 				return NewTypeError(
-					"Validator "+anno.Name+" cannot be applied to type "+node.Type.Name,
+					"Annotation "+anno.Name+" cannot be applied to type "+node.Type.Name,
 					anno.Loc.GetErrorLocation(),
 				)
 			}
 
 			if len(anno.Args) < validator.Args {
 				return NewTypeError(
-					"Validator "+anno.Name+" requires "+strconv.Itoa(validator.Args)+" arguments",
+					"Annotation "+anno.Name+" requires "+strconv.Itoa(validator.Args)+" arguments",
 					anno.Loc.GetErrorLocation(),
 				)
 			}
@@ -164,7 +164,7 @@ func (c *TypeChecker) CheckFieldAnnotation(node *ModelFieldNode) BaseError {
 
 			if len(anno.Args) < fieldAnno.Args {
 				return NewTypeError(
-					"Validator "+anno.Name+" requires "+strconv.Itoa(validator.Args)+" arguments",
+					"Annotation "+anno.Name+" requires "+strconv.Itoa(fieldAnno.Args)+" arguments",
 					anno.Loc.GetErrorLocation(),
 				)
 			}
@@ -196,7 +196,7 @@ func (c *TypeChecker) CheckModelAnnotation(node *ModelStatementNode) BaseError {
 
 			if len(anno.Args) < modelAnno.Args {
 				return NewTypeError(
-					"Validator "+anno.Name+" requires "+strconv.Itoa(modelAnno.Args)+" arguments",
+					"Annotation "+anno.Name+" requires "+strconv.Itoa(modelAnno.Args)+" arguments",
 					anno.Loc.GetErrorLocation(),
 				)
 			}

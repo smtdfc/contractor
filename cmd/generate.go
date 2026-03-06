@@ -82,24 +82,27 @@ func runGeneration(cmd *cobra.Command) error {
 				if strings.Contains(entry.Lang, "ts") {
 					outputPath := filepath.Join(cwd, entry.Output, baseName+".ts")
 					tsGen := generator.NewTypescriptGenerator()
+					fmt.Printf("Generated TypeScript: %s -> %s\n", filePath, outputPath)
 					code, gErr := tsGen.Generate(ast)
+
 					if gErr != nil {
 						parser.PrintError(gErr, "")
 					} else {
 						helpers.WriteTextFile(outputPath, code)
-						fmt.Printf("Generated TypeScript: %s -> %s\n", filePath, outputPath)
+
 					}
 				}
 
 				if strings.Contains(entry.Lang, "go") {
 					outputPath := filepath.Join(cwd, entry.Output, baseName+".go")
 					goGen := generator.NewGoGenerator()
+					fmt.Printf("Generated Go:%s -> %s\n", filePath, outputPath)
 					code, gErr := goGen.Generate(ast, entry.PkgName, "")
 					if gErr != nil {
 						parser.PrintError(gErr, "")
 					} else {
 						helpers.WriteTextFile(outputPath, code)
-						fmt.Printf("Generated Go:%s -> %s\n", filePath, outputPath)
+
 					}
 				}
 			}
