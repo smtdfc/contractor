@@ -1,174 +1,194 @@
 package parser
 
-type Node interface {
+type ASTNode interface {
+	GetLocation() *Location
 	GetType() string
-	GetLocation() *NodeLocation
 }
 
-type ListNode []Node
-
-type LiteralNode struct {
-	Type        TokenType
-	Value       string
-	Annotations *AnnotationChainNode
-	Loc         *NodeLocation
+type ProgramNode struct {
+	Body []ASTNode
+	Loc  *Location
 }
 
-func (n *LiteralNode) GetType() string {
-	return "Literial"
-}
-
-func (n *LiteralNode) GetLocation() *NodeLocation {
+func (n *ProgramNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewLiteralNode(t TokenType, value string, loc *NodeLocation) *LiteralNode {
-	return &LiteralNode{
-		Type:  t,
-		Value: value,
-		Loc:   loc,
-	}
+func (n *ProgramNode) GetType() string {
+	return "Program"
 }
 
-type ModelStatementNode struct {
-	Name        string
-	Fields      []*ModelFieldNode
-	TypeVar     *TypeVarNode
-	Annotations *AnnotationChainNode
-	Loc         *NodeLocation
+type IdentNode struct {
+	Value string
+	Loc   *Location
 }
 
-func (n *ModelStatementNode) GetType() string {
-	return "ModelStatement"
-}
-
-func (n *ModelStatementNode) GetLocation() *NodeLocation {
+func (n *IdentNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewModelStatementNode(name string, typeVar *TypeVarNode, anno *AnnotationChainNode, fields []*ModelFieldNode, loc *NodeLocation) *ModelStatementNode {
-	return &ModelStatementNode{Name: name, TypeVar: typeVar, Annotations: anno, Fields: fields, Loc: loc}
+func (n *IdentNode) GetType() string {
+	return "Ident"
 }
 
-type AnnotationNode struct {
-	Name string
-	Args ListNode
-	Loc  *NodeLocation
+type ModelDeclNode struct {
+	Name        *IdentNode
+	Generics    []*TypeVarNode
+	Fields      []*ModelFieldDeclNode
+	Annotations []*AnnotationNode
+	Loc         *Location
 }
 
-func (n *AnnotationNode) GetType() string {
-	return "Annotation"
-}
-
-func (n *AnnotationNode) GetLocation() *NodeLocation {
+func (n *ModelDeclNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewAnnotationNode(name string, args ListNode, loc *NodeLocation) *AnnotationNode {
-	return &AnnotationNode{Name: name, Args: args, Loc: loc}
+func (n *ModelDeclNode) GetType() string {
+	return "ModelDecl"
 }
 
-type ListAnnotation []*AnnotationNode
-
-type AnnotationChainNode struct {
-	List ListAnnotation
-	Loc  *NodeLocation
+type ModelFieldDeclNode struct {
+	Name        *IdentNode
+	Type        *TypeDeclNode
+	Optional    bool
+	Annotations []*AnnotationNode
+	Loc         *Location
 }
 
-func (n *AnnotationChainNode) GetType() string {
-	return "AnnotationChain"
-}
-
-func (n *AnnotationChainNode) GetLocation() *NodeLocation {
+func (n *ModelFieldDeclNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewAnnotationChainNode(list ListAnnotation, loc *NodeLocation) *AnnotationChainNode {
-	return &AnnotationChainNode{List: list, Loc: loc}
-}
-
-type TypeDeclarationNode struct {
-	Name    string
-	Generic Node
-	Loc     *NodeLocation
-}
-
-func (n *TypeDeclarationNode) HasGeneric() bool {
-	if n.Generic == nil {
-		return false
-	}
-
-	return true
-}
-
-func (n *TypeDeclarationNode) GetType() string {
-	return "TypeDeclaration"
-}
-
-func (n *TypeDeclarationNode) GetLocation() *NodeLocation {
-	return n.Loc
-}
-
-func NewTypeDeclarationNode(name string, generic Node, loc *NodeLocation) *TypeDeclarationNode {
-	return &TypeDeclarationNode{
-		Name:    name,
-		Generic: generic,
-		Loc:     loc,
-	}
-}
-
-type ModelFieldNode struct {
-	Name        string
-	Type        *TypeDeclarationNode
-	Annotations *AnnotationChainNode
-	Loc         *NodeLocation
-}
-
-func (n *ModelFieldNode) GetType() string {
-	return "ModelField"
-}
-
-func (n *ModelFieldNode) GetLocation() *NodeLocation {
-	return n.Loc
-}
-
-func NewModelFieldNode(name string, annotations *AnnotationChainNode, t *TypeDeclarationNode, loc *NodeLocation) *ModelFieldNode {
-	return &ModelFieldNode{Name: name, Annotations: annotations, Type: t, Loc: loc}
+func (n *ModelFieldDeclNode) GetType() string {
+	return "ModelFieldDecl"
 }
 
 type TypeVarNode struct {
-	Name string
-	Loc  *NodeLocation
+	Name *IdentNode
+	Loc  *Location
+}
+
+func (n *TypeVarNode) GetLocation() *Location {
+	return n.Loc
 }
 
 func (n *TypeVarNode) GetType() string {
 	return "TypeVar"
 }
 
-func (n *TypeVarNode) GetLocation() *NodeLocation {
+type TypeDeclNode struct {
+	Name     *IdentNode
+	Generics []*TypeDeclNode
+	Loc      *Location
+}
+
+func (n *TypeDeclNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewTypeVarNode(name string, loc *NodeLocation) *TypeVarNode {
-	return &TypeVarNode{Name: name, Loc: loc}
+func (n *TypeDeclNode) GetType() string {
+	return "TypeDecl"
 }
 
-type AST struct {
-	Statements ListNode
-	Loc        *NodeLocation
+type AnnotationNode struct {
+	Name *IdentNode
+	Args []ASTValueNode
+	Loc  *Location
 }
 
-func (n *AST) GetType() string {
-	return "AST"
-}
-
-func (n *AST) GetLocation() *NodeLocation {
+func (n *AnnotationNode) GetLocation() *Location {
 	return n.Loc
 }
 
-func NewAST(stats ListNode, loc *NodeLocation) *AST {
-	return &AST{
-		Statements: stats,
-		Loc:        loc,
-	}
+func (n *AnnotationNode) GetType() string {
+	return "Annotation"
+}
+
+type ASTValueNode interface {
+	ASTNode
+	GetKind() string
+}
+
+type StringValueNode struct {
+	Value string
+	Loc   *Location
+}
+
+func (n *StringValueNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *StringValueNode) GetType() string {
+	return "StringValue"
+}
+
+func (n *StringValueNode) GetKind() string {
+	return "String"
+}
+
+type NumberValueNode struct {
+	Value string
+	Loc   *Location
+}
+
+func (n *NumberValueNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *NumberValueNode) GetType() string {
+	return "NumberValue"
+}
+
+func (n *NumberValueNode) GetKind() string {
+	return "Number"
+}
+
+type ArrayValueNode struct {
+	Values []ASTValueNode
+	Loc    *Location
+}
+
+func (n *ArrayValueNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *ArrayValueNode) GetType() string {
+	return "ArrayValue"
+}
+
+func (n *ArrayValueNode) GetKind() string {
+	return "Array"
+}
+
+type BooleanValueNode struct {
+	Values string
+	Loc    *Location
+}
+
+func (n *BooleanValueNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *BooleanValueNode) GetType() string {
+	return "BooleanValue"
+}
+
+func (n *BooleanValueNode) GetKind() string {
+	return "Boolean"
+}
+
+type NullValueNode struct {
+	Loc *Location
+}
+
+func (n *NullValueNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *NullValueNode) GetType() string {
+	return "NullValue"
+}
+
+func (n *NullValueNode) GetKind() string {
+	return "Null"
 }

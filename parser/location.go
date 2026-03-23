@@ -1,76 +1,41 @@
 package parser
 
-import (
-	"fmt"
-)
+import "fmt"
 
-type TokenLocation struct {
-	Start Position
-	End   Position
+type Location struct {
 	File  string
+	Start *Position
+	End   *Position
 }
 
-func (l *TokenLocation) Copy() *TokenLocation {
-	return &TokenLocation{
-		Start: l.Start,
-		End:   l.End,
+func (l *Location) Copy() *Location {
+	return &Location{
 		File:  l.File,
-	}
-}
-
-func (l *TokenLocation) ToString() string {
-	return fmt.Sprintf("%d:%d - %d:%d in %s", l.Start.Line, l.Start.Column, l.End.Line, l.End.Column, l.File)
-}
-
-func NewTokenLocation(start Position, end Position, file string) *TokenLocation {
-	return &TokenLocation{
-		Start: start,
-		End:   end,
-		File:  file,
-	}
-}
-
-type NodeLocation struct {
-	Start *TokenLocation
-	End   *TokenLocation
-}
-
-func NewNodeLocation(start *TokenLocation, end *TokenLocation) *NodeLocation {
-	return &NodeLocation{
-		Start: start,
-		End:   end,
-	}
-}
-
-func (l *NodeLocation) Copy() *NodeLocation {
-	return &NodeLocation{
 		Start: l.Start.Copy(),
 		End:   l.End.Copy(),
 	}
 }
 
-func (l *NodeLocation) GetErrorLocation() *ErrorLocation {
-	return NewErrorLocation(
-		l.Start.Start,
-		l.End.End,
-		l.Start.File,
-	)
+func (l *Location) String() string {
+	return fmt.Sprintf("(File: %s ,Start: %s ,End: %s)", l.File, l.Start, l.End)
 }
 
-type ErrorLocation struct {
-	Start Position
-	End   Position
-	File  string
+func (l *Location) GetStart() (int, int) {
+	return l.Start.Line, l.Start.Col
 }
 
-func (l *ErrorLocation) ToString() string {
-	return fmt.Sprintf("%d:%d - %d:%d in %s", l.Start.Line, l.Start.Column, l.End.Line, l.End.Column, l.File)
+func (l *Location) GetEnd() (int, int) {
+	return l.End.Line, l.End.Col
 }
 
-func NewErrorLocation(start Position, end Position, file string) *ErrorLocation {
-	return &ErrorLocation{
-		Start: start,
-		End:   end,
+func (l *Location) GetFile() string {
+	return l.File
+}
+
+func NewLocation(file string, start *Position, end *Position) *Location {
+	return &Location{
 		File:  file,
+		Start: start.Copy(),
+		End:   end.Copy(),
 	}
 }

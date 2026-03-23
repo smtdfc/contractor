@@ -1,379 +1,488 @@
 package parser
 
-// "fmt"
+import (
+	"github.com/smtdfc/contractor/exception"
+)
 
-type Parser struct{}
-
-func (p *Parser) CreateNodeLocation(start *Token, end *Token) *NodeLocation {
-	return NewNodeLocation(
-		start.Loc,
-		end.Loc,
-	)
+type Parser struct {
+	File    string
+	Tokens  TokenList
+	Current *Token
+	Index   int
 }
 
-func (p *Parser) ExpectToken(scanner *TokenScanner, t TokenType, value string, msg string) (*Token, BaseError) {
-	if !scanner.Current.Match(t, value) {
-		return nil, NewSyntaxError(
-			msg,
-			scanner.GetErrorLocation(),
-		)
+func (p *Parser) ParseTypeDecl() (*TypeDeclNode, exception.IException) {
+	var start, end *Location
+	start = p.Current.Loc
+	typeNode := TypeDeclNode{
+		Generics: make([]*TypeDeclNode, 0),
 	}
 
-	curr := scanner.Current.Copy()
-	scanner.Next()
-	return curr, nil
-}
-
-func (p *Parser) SkipNewlines(scanner *TokenScanner) {
-	for scanner.Current != nil && scanner.Current.HasType(TOKEN_NEWLINE) {
-		scanner.Next()
-	}
-}
-
-func (p *Parser) ExpectTokenTypeAfterNewlines(scanner *TokenScanner, t TokenType, msg string) (*Token, BaseError) {
-	p.SkipNewlines(scanner)
-	return p.ExpectTokenType(scanner, t, msg)
-}
-
-func (p *Parser) ExpectTokenType(scanner *TokenScanner, t TokenType, msg string) (*Token, BaseError) {
-	if !scanner.Current.HasType(t) {
-		return nil, NewSyntaxError(
-			msg,
-			scanner.GetErrorLocation(),
-		)
-	}
-
-	curr := scanner.Current.Copy()
-	scanner.Next()
-	return curr, nil
-}
-
-func (p *Parser) ParseLiteral(scanner *TokenScanner) (Node, BaseError) {
-	curr := scanner.Current
-	switch curr.Type {
-	case TOKEN_NUMBER, TOKEN_STRING, TOKEN_BOOL, TOKEN_NULL:
-		node := NewLiteralNode(curr.Type, curr.Value, p.CreateNodeLocation(curr, curr))
-		scanner.Next()
-		return node, nil
-	default:
-		return nil, NewSyntaxError(
-			"Only numbers, strings, booleans, or null are allowed here",
-			scanner.GetErrorLocation(),
-		)
-	}
-}
-
-func (p *Parser) ParseAnnotation(scanner *TokenScanner) (*AnnotationNode, BaseError) {
-	startToken := scanner.Current.Copy()
-	scanner.Next()
-	args := ListNode{}
-	name, err := p.ExpectTokenType(
-		scanner,
-		TOKEN_IDENTIFIER,
-		"Expected annotation name",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if scanner.Current.HasType(TOKEN_LEFT_PAREN) {
-		scanner.Next()
-
-		for !scanner.Current.HasType(TOKEN_RIGHT_PAREN) {
-			arg, err := p.ParseLiteral(scanner)
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, arg)
-
-			if scanner.Current.HasType(TOKEN_COMMA) {
-				scanner.Next()
-
-				if scanner.Current.HasType(TOKEN_RIGHT_PAREN) {
-					break
-				}
-			} else if !scanner.Current.HasType(TOKEN_RIGHT_PAREN) {
-				return nil, NewSyntaxError(
-					"Expected ',' or ')' after annotation argument",
-					scanner.GetErrorLocation(),
-				)
-			}
-		}
-
-		_, err = p.ExpectTokenType(scanner, TOKEN_RIGHT_PAREN, "Expected ')' after arguments")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if scanner.Current.HasType(TOKEN_NEWLINE) {
-		scanner.Next()
-	} else if scanner.Current.HasType(TOKEN_EOF) {
-		// ignore
+	if p.Current.MatchType(TT_IDENT) {
+		typeNode.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+		end = p.Current.Loc
+		p.Next()
 	} else {
-		return nil, NewSyntaxError(
-			"Invalid syntax",
-			scanner.GetErrorLocation(),
+		return nil, exception.NewSyntaxException(
+			"Excepted type name",
+			p.Current.Loc,
 		)
 	}
 
-	loc := p.CreateNodeLocation(startToken, name)
+	if p.Current.Match(TT_OP, "<") {
+		p.Next()
 
-	return NewAnnotationNode(
-		name.Value,
-		args,
-		loc,
-	), nil
-}
-
-func (p *Parser) ParseAnnotationChain(scanner *TokenScanner) (*AnnotationChainNode, BaseError) {
-	var annotations ListAnnotation
-	var endToken *Token
-	startToken := scanner.Current.Copy()
-
-	first, err := p.ParseAnnotation(scanner)
-	if err != nil {
-		return nil, err
-	}
-	endToken = scanner.Current.Copy()
-
-	annotations = append(annotations, first)
-	for scanner.Current != nil && !scanner.Current.HasType(TOKEN_EOF) {
-		if scanner.Current.HasType(TOKEN_ANNOTATION) {
-			anno, err := p.ParseAnnotation(scanner)
-			if err != nil {
-				return nil, err
-			}
-			annotations = append(annotations, anno)
-			endToken = scanner.Current.Copy()
-			continue
-		} else if scanner.Current.HasType(TOKEN_NEWLINE) {
-			scanner.Next()
-			continue
-		} else {
-			break
-		}
-	}
-
-	loc := p.CreateNodeLocation(startToken, endToken)
-	return NewAnnotationChainNode(
-		annotations,
-		loc,
-	), nil
-}
-
-func (p *Parser) ParseType(scanner *TokenScanner) (*TypeDeclarationNode, BaseError) {
-	var endToken *Token
-	startToken, err := p.ExpectTokenType(scanner, TOKEN_IDENTIFIER, "Expect type name")
-	if err != nil {
-		return nil, err
-	}
-
-	endToken = startToken
-	var generic Node = nil
-	if scanner.Current.Match(TOKEN_OPERATOR, "<") {
-		scanner.Next()
-		generic, err = p.ParseType(scanner)
-		if err != nil {
-			return nil, err
+		if p.Current.Match(TT_OP, ">") {
+			return nil, exception.NewSyntaxException(
+				"Expected type argument",
+				p.Current.Loc,
+			)
 		}
 
-		endToken, err = p.ExpectToken(scanner, TOKEN_OPERATOR, ">", "Expected '>'")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return NewTypeDeclarationNode(
-		startToken.Value,
-		generic,
-		p.CreateNodeLocation(startToken, endToken),
-	), nil
-}
-
-func (p *Parser) ParseModelField(scanner *TokenScanner, annotations *AnnotationChainNode) (*ModelFieldNode, BaseError) {
-	startToken := scanner.Current.Copy()
-
-	typeNode, err := p.ParseType(scanner)
-	if err != nil {
-		return nil, err
-	}
-
-	name, err := p.ExpectTokenTypeAfterNewlines(
-		scanner,
-		TOKEN_IDENTIFIER,
-		"Expected field name",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	p.SkipNewlines(scanner)
-	loc := p.CreateNodeLocation(startToken, name)
-	return NewModelFieldNode(
-		name.Value,
-		annotations,
-		typeNode,
-		loc,
-	), nil
-}
-
-func (p *Parser) ParseAllModelFields(scanner *TokenScanner) ([]*ModelFieldNode, BaseError) {
-	var annotationChain *AnnotationChainNode
-	var fields []*ModelFieldNode
-
-	for scanner.Current != nil && !scanner.Current.HasType(TOKEN_EOF) {
-		p.SkipNewlines(scanner)
-
-		if scanner.Current.HasType(TOKEN_RIGHT_BRACE) {
-			break
-		}
-
-		if scanner.Current.HasType(TOKEN_ANNOTATION) {
-			node, err := p.ParseAnnotationChain(scanner)
-			if err != nil {
-				return nil, err
-			}
-			annotationChain = node
-			continue
-		}
-
-		field, err := p.ParseModelField(scanner, annotationChain)
-		if err != nil {
-			return nil, err
-		}
-
-		fields = append(fields, field)
-		annotationChain = nil
-	}
-
-	if annotationChain != nil {
-		return nil, NewSyntaxError(
-			"Dangling annotation: no field affected",
-			annotationChain.Loc.GetErrorLocation(),
-		)
-	}
-
-	return fields, nil
-}
-
-func (p *Parser) ParseModelStatement(scanner *TokenScanner, annotations *AnnotationChainNode) (*ModelStatementNode, BaseError) {
-	startToken := scanner.Current.Copy()
-	scanner.Next()
-
-	name, err := p.ExpectTokenType(
-		scanner,
-		TOKEN_IDENTIFIER,
-		"Expected model name",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var typeVar *TypeVarNode
-	if scanner.Current.Match(TOKEN_OPERATOR, "<") {
-		scanner.Next()
-		n, err := p.ExpectTokenType(scanner, TOKEN_IDENTIFIER, "Expected type var")
-		if err != nil {
-			return nil, err
-		}
-
-		typeVar = NewTypeVarNode(n.Value, p.CreateNodeLocation(n, n))
-		_, err = p.ExpectToken(scanner, TOKEN_OPERATOR, ">", "Expected '>'")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	_, err = p.ExpectTokenTypeAfterNewlines(
-		scanner,
-		TOKEN_LEFT_BRACE,
-		"Expected {",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	fields, err := p.ParseAllModelFields(scanner)
-	if err != nil {
-		return nil, err
-	}
-
-	//end
-	endToken, err := p.ExpectTokenTypeAfterNewlines(
-		scanner,
-		TOKEN_RIGHT_BRACE,
-		"Expected }",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	loc := p.CreateNodeLocation(startToken, endToken)
-	return NewModelStatementNode(
-		name.Value,
-		typeVar,
-		annotations,
-		fields,
-		loc,
-	), nil
-}
-
-func (p *Parser) Parse(tokens ListToken, file string) (*AST, BaseError) {
-	var statements ListNode
-	var annotationChain *AnnotationChainNode
-	scanner := NewTokenScanner(tokens)
-	scanner.Next()
-	startToken := scanner.Current.Copy()
-
-	for scanner.Current != nil && !scanner.Current.HasType(TOKEN_EOF) {
-		if scanner.Current.HasType(TOKEN_ANNOTATION) {
-			node, err := p.ParseAnnotationChain(scanner)
-			annotationChain = node
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-
-		if scanner.Current.Match(TOKEN_KEYWORD, "model") {
-			node, err := p.ParseModelStatement(scanner, annotationChain)
+		for !p.Current.MatchType(TT_EOF) {
+			genericType, err := p.ParseTypeDecl()
 			if err != nil {
 				return nil, err
 			}
 
-			annotationChain = nil
-			statements = append(statements, node)
-		}
+			typeNode.Generics = append(typeNode.Generics, genericType)
 
-		if scanner.Current != nil {
-			if scanner.Current.HasType(TOKEN_NEWLINE) {
-				scanner.Next()
-			} else if scanner.Current.HasType(TOKEN_EOF) {
-				if annotationChain != nil {
-					return nil, NewSyntaxError(
-						"Dangling annotation: no object affected",
-						annotationChain.Loc.GetErrorLocation(),
+			if p.Current.MatchType(TT_COMMA) {
+				p.Next()
+				if p.Current.Match(TT_OP, ">") {
+					return nil, exception.NewSyntaxException(
+						"Trailing comma in generic type is not allowed",
+						p.Current.Loc,
 					)
 				}
-
-				break
-			} else {
-				return nil, NewSyntaxError(
-					"Invalid syntax",
-					scanner.GetErrorLocation(),
-				)
+				continue
 			}
+
+			if p.Current.Match(TT_OP, ">") {
+				end = p.Current.Loc
+				p.Next()
+				break
+			}
+
+			return nil, exception.NewSyntaxException(
+				"Expected ',' or '>' in generic type",
+				p.Current.Loc,
+			)
+		}
+
+		if end == nil {
+			return nil, exception.NewSyntaxException(
+				"Unterminated generic type, expected '>'",
+				p.Current.Loc,
+			)
 		}
 	}
 
-	loc := p.CreateNodeLocation(startToken, scanner.Current)
-	return NewAST(
-		statements,
-		loc,
-	), nil
+	typeNode.Loc = NewLocation(start.File, start.Start, end.End)
+	return &typeNode, nil
 }
 
-func NewParser() *Parser {
-	return &Parser{}
+func (p *Parser) ParseModelFieldDecl() (*ModelFieldDeclNode, exception.IException) {
+	var start, end *Location
+	start = p.Current.Loc
+	field := ModelFieldDeclNode{}
+
+	if p.Current.MatchType(TT_IDENT) {
+		field.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+		p.Next()
+	} else {
+		return nil, exception.NewSyntaxException(
+			"Excepted field name",
+			p.Current.Loc,
+		)
+	}
+
+	if p.Current.MatchType(TT_QUES) {
+		field.Optional = true
+		p.Next()
+	}
+
+	if p.Current.MatchType(TT_COLON) {
+		p.Next()
+	} else {
+		return nil, exception.NewSyntaxException(
+			"Excepted field type",
+			p.Current.Loc,
+		)
+	}
+
+	typeNode, err := p.ParseTypeDecl()
+	if err != nil {
+		return nil, err
+	}
+
+	field.Type = typeNode
+	end = typeNode.Loc
+	field.Loc = NewLocation(start.File, start.Start, end.End)
+	return &field, nil
+}
+
+func (p *Parser) ParseModelDecl() (*ModelDeclNode, exception.IException) {
+	var start *Location
+	start = p.Current.Loc
+	model := ModelDeclNode{
+		Fields:      make([]*ModelFieldDeclNode, 0),
+		Generics:    make([]*TypeVarNode, 0),
+		Annotations: make([]*AnnotationNode, 0),
+	}
+
+	p.Next()
+
+	if p.Current.MatchType(TT_IDENT) {
+		model.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+		p.Next()
+	} else {
+		return nil, exception.NewSyntaxException("Expected identifier for model name", p.Current.Loc)
+	}
+
+	if p.Current.Match(TT_OP, "<") {
+		generics := []*TypeVarNode{}
+		p.Next()
+		for !p.Current.Match(TT_OP, ">") && !p.Current.MatchType(TT_EOF) {
+			if p.Current.MatchType(TT_IDENT) {
+				generics = append(generics, &TypeVarNode{
+					Name: &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()},
+					Loc:  p.Current.Loc.Copy(),
+				})
+				p.Next()
+			} else {
+				return nil, exception.NewSyntaxException("Expected type parameter name", p.Current.Loc)
+			}
+
+			if p.Current.MatchType(TT_COMMA) {
+				p.Next()
+				if p.Current.Match(TT_OP, ">") {
+					return nil, exception.NewSyntaxException("Trailing comma in generics not allowed", p.Current.Loc)
+				}
+			} else if !p.Current.Match(TT_OP, ">") {
+				return nil, exception.NewSyntaxException("Expected ',' or '>' in generic list", p.Current.Loc)
+			}
+		}
+
+		if !p.Current.Match(TT_OP, ">") {
+			return nil, exception.NewSyntaxException("Unterminated generic list, expected '>'", p.Current.Loc)
+		}
+		p.Next()
+		model.Generics = generics
+	}
+
+	p.SkipNewLine()
+
+	if !p.Current.MatchType(TT_LBRACE) {
+		return nil, exception.NewSyntaxException("Expected {", p.Current.Loc)
+	}
+	p.Next()
+	p.SkipNewLine()
+
+	for p.Current != nil && !p.Current.MatchType(TT_RBRACE) && !p.Current.MatchType(TT_EOF) {
+		if p.Current.MatchType(TT_NEWLINE) {
+			p.SkipNewLine()
+			continue
+		}
+
+		fieldAnnotations := make([]*AnnotationNode, 0)
+		for p.Current != nil && p.Current.MatchType(TT_DECORATOR) {
+			annotation, err := p.ParseAnnotation()
+			if err != nil {
+				return nil, err
+			}
+			fieldAnnotations = append(fieldAnnotations, annotation)
+			p.SkipNewLine()
+		}
+
+		if p.Current == nil || p.Current.MatchType(TT_RBRACE) || p.Current.MatchType(TT_EOF) {
+			if len(fieldAnnotations) > 0 {
+				return nil, exception.NewSyntaxException("Annotation must be followed by a field", fieldAnnotations[len(fieldAnnotations)-1].Loc)
+			}
+			break
+		}
+
+		if p.Current.MatchType(TT_IDENT) {
+			field, err := p.ParseModelFieldDecl()
+			if err != nil {
+				return nil, err
+			}
+			field.Annotations = append(field.Annotations, fieldAnnotations...)
+			model.Fields = append(model.Fields, field)
+		} else {
+			return nil, exception.NewSyntaxException("Unexpected token inside model body", p.Current.Loc)
+		}
+
+		p.SkipNewLine()
+	}
+
+	if p.Current != nil && p.Current.MatchType(TT_RBRACE) {
+		model.Loc = NewLocation(start.File, start.Start, p.Current.Loc.End)
+		p.Next()
+	} else {
+		return nil, exception.NewSyntaxException("Expected } at the end of model", p.Current.Loc)
+	}
+
+	return &model, nil
+}
+
+func (p *Parser) SkipNewLine() {
+	for p.Current != nil && p.Current.MatchType(TT_NEWLINE) {
+		p.Next()
+	}
+}
+
+func (p *Parser) ParseValue() (ASTValueNode, exception.IException) {
+	if p.Current == nil {
+		return nil, exception.NewSyntaxException("Expected value", p.Tokens[len(p.Tokens)-1].Loc)
+	}
+
+	start := p.Current.Loc
+
+	switch {
+	case p.Current.MatchType(TT_STRING):
+		node := &StringValueNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+		p.Next()
+		return node, nil
+
+	case p.Current.MatchType(TT_NUMBER):
+		node := &NumberValueNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+		p.Next()
+		return node, nil
+
+	case p.Current.MatchType(TT_IDENT):
+		if p.Current.Value == "true" || p.Current.Value == "false" {
+			node := &BooleanValueNode{Values: p.Current.Value, Loc: p.Current.Loc.Copy()}
+			p.Next()
+			return node, nil
+		}
+
+		if p.Current.Value == "null" {
+			node := &NullValueNode{Loc: p.Current.Loc.Copy()}
+			p.Next()
+			return node, nil
+		}
+
+		return nil, exception.NewSyntaxException("Expected value literal", p.Current.Loc)
+
+	case p.Current.MatchType(TT_LSQUARE):
+		p.Next()
+		values := make([]ASTValueNode, 0)
+
+		if p.Current.MatchType(TT_RSQUARE) {
+			loc := NewLocation(start.File, start.Start, p.Current.Loc.End)
+			p.Next()
+			return &ArrayValueNode{Values: values, Loc: loc}, nil
+		}
+
+		for p.Current != nil && !p.Current.MatchType(TT_EOF) {
+			value, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+
+			if p.Current.MatchType(TT_COMMA) {
+				p.Next()
+				if p.Current.MatchType(TT_RSQUARE) {
+					return nil, exception.NewSyntaxException("Trailing comma in array is not allowed", p.Current.Loc)
+				}
+				continue
+			}
+
+			if p.Current.MatchType(TT_RSQUARE) {
+				loc := NewLocation(start.File, start.Start, p.Current.Loc.End)
+				p.Next()
+				return &ArrayValueNode{Values: values, Loc: loc}, nil
+			}
+
+			return nil, exception.NewSyntaxException("Expected ',' or ']' in array", p.Current.Loc)
+		}
+
+		return nil, exception.NewSyntaxException("Unterminated array, expected ']'", p.Current.Loc)
+
+	default:
+		return nil, exception.NewSyntaxException("Expected value", p.Current.Loc)
+	}
+}
+
+func (p *Parser) ParseArgs() ([]ASTValueNode, exception.IException) {
+	if p.Current == nil || !p.Current.MatchType(TT_LPAREN) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected '(' to start argument list", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected '(' to start argument list", p.Current.Loc)
+	}
+
+	args := make([]ASTValueNode, 0)
+	p.Next()
+
+	if p.Current == nil {
+		return nil, exception.NewSyntaxException("Unterminated argument list, expected ')'", p.Tokens[len(p.Tokens)-1].Loc)
+	}
+
+	if p.Current.MatchType(TT_RPAREN) {
+		p.Next()
+		return args, nil
+	}
+
+	for p.Current != nil && !p.Current.MatchType(TT_EOF) {
+		value, err := p.ParseValue()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, value)
+
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Unterminated argument list, expected ')'", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+
+		if p.Current.MatchType(TT_COMMA) {
+			p.Next()
+			if p.Current == nil {
+				return nil, exception.NewSyntaxException("Unterminated argument list, expected value after ','", p.Tokens[len(p.Tokens)-1].Loc)
+			}
+			if p.Current.MatchType(TT_RPAREN) {
+				return nil, exception.NewSyntaxException("Trailing comma in arguments is not allowed", p.Current.Loc)
+			}
+			continue
+		}
+
+		if p.Current.MatchType(TT_RPAREN) {
+			p.Next()
+			return args, nil
+		}
+
+		return nil, exception.NewSyntaxException("Expected ',' or ')' in argument list", p.Current.Loc)
+	}
+
+	if p.Current == nil {
+		return nil, exception.NewSyntaxException("Unterminated argument list, expected ')'", p.Tokens[len(p.Tokens)-1].Loc)
+	}
+
+	return nil, exception.NewSyntaxException("Unterminated argument list, expected ')'", p.Current.Loc)
+}
+
+func (p *Parser) ParseAnnotation() (*AnnotationNode, exception.IException) {
+	if p.Current == nil || !p.Current.MatchType(TT_DECORATOR) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected '@' for annotation", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected '@' for annotation", p.Current.Loc)
+	}
+
+	start := p.Current.Loc
+	p.Next()
+
+	if p.Current == nil || !p.Current.MatchType(TT_IDENT) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected annotation name", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected annotation name", p.Current.Loc)
+	}
+
+	node := &AnnotationNode{
+		Name: &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()},
+		Args: make([]ASTValueNode, 0),
+	}
+
+	p.Next()
+	if p.Current != nil && p.Current.MatchType(TT_LPAREN) {
+		args, err := p.ParseArgs()
+		if err != nil {
+			return nil, err
+		}
+
+		node.Args = append(node.Args, args...)
+	}
+
+	end := start.End
+	if len(node.Args) > 0 {
+		end = node.Args[len(node.Args)-1].GetLocation().End
+	}
+	if p.Index-1 >= 0 {
+		prev := p.Tokens[p.Index-1]
+		if prev != nil && (prev.MatchType(TT_RPAREN) || prev.MatchType(TT_IDENT)) {
+			end = prev.Loc.End
+		}
+	}
+
+	node.Loc = NewLocation(start.File, start.Start, end)
+	return node, nil
+}
+
+func (p *Parser) Parse() (*ProgramNode, exception.IException) {
+	program := &ProgramNode{
+		Body: make([]ASTNode, 0),
+	}
+
+	p.Next()
+
+	for p.Current != nil && !p.Current.MatchType(TT_EOF) {
+		switch {
+		case p.Current.MatchType(TT_NEWLINE):
+			p.SkipNewLine()
+
+		case p.Current.MatchType(TT_DECORATOR):
+			annotations := make([]*AnnotationNode, 0)
+			for p.Current != nil && p.Current.MatchType(TT_DECORATOR) {
+				annotation, err := p.ParseAnnotation()
+				if err != nil {
+					return nil, err
+				}
+				annotations = append(annotations, annotation)
+				p.SkipNewLine()
+			}
+
+			if p.Current == nil || !p.Current.Match(TT_IDENT, "model") {
+				return nil, exception.NewSyntaxException("Annotation must be followed by a model", annotations[len(annotations)-1].Loc)
+			}
+
+			n, err := p.ParseModelDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			n.Annotations = append(n.Annotations, annotations...)
+			program.Body = append(program.Body, n)
+
+		case p.Current.Match(TT_IDENT, "model"):
+			n, err := p.ParseModelDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			program.Body = append(program.Body, n)
+
+		case p.Current.MatchType(TT_EOF):
+			p.Next()
+
+		default:
+			return nil, exception.NewSyntaxException("Unexpected token at top level", p.Current.Loc)
+
+		}
+
+	}
+
+	return program, nil
+}
+
+func (p *Parser) Next() {
+	if p.Index+1 < len(p.Tokens) {
+		p.Index++
+		p.Current = p.Tokens[p.Index]
+	} else {
+		p.Current = nil
+	}
+}
+
+func (p *Parser) Peek() *Token {
+	if p.Index+1 < len(p.Tokens) {
+		return p.Tokens[p.Index+1]
+	}
+	return nil
+}
+
+func NewParser(file string, tokens TokenList) *Parser {
+	return &Parser{File: file, Tokens: tokens, Current: nil, Index: -1}
 }

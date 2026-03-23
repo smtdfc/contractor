@@ -1,249 +1,345 @@
 package parser
 
-type Lexer struct{}
+import (
+	"fmt"
+	"strings"
 
-func isDigit(r rune) bool {
-	return r >= '0' && r <= '9'
+	"github.com/smtdfc/contractor/exception"
+)
+
+type Lexer struct {
+	File string
 }
 
-func isAlpha(r rune) bool {
-	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_'
-}
+func (l *Lexer) ReadNumber(scanner *Scanner) (*Token, exception.IException) {
+	startPos := scanner.GetPosition()
+	var num strings.Builder
 
-func isAlphaNumeric(r rune) bool {
-	return isAlpha(r) || (r >= '0' && r <= '9')
-}
+	num.WriteRune(scanner.Current)
 
-func (l *Lexer) getOperatorToken(scanner *Scanner) *Token {
-	marker := scanner.CreateMarker()
-	marker.MarkStart()
+	isDotted := false
+	lastValidPos := startPos
 
-	first := scanner.Current
 	scanner.Next()
-	literal := string(first)
-
-	if (first == '=' || first == '!' || first == '<' || first == '>' || first == '+' || first == '-' || first == '&' || first == '|') && scanner.Current == '=' {
-		literal += string(scanner.Current)
-		scanner.Next()
-	} else if first == '&' && scanner.Current == '&' {
-		literal += string(scanner.Current)
-		scanner.Next()
-	} else if first == '|' && scanner.Current == '|' {
-		literal += string(scanner.Current)
-		scanner.Next()
-	}
-
-	marker.MarkEnd()
-	loc, _ := marker.GetLocation()
-	return NewToken(TOKEN_OPERATOR, literal, loc)
-}
-
-func (l *Lexer) SkipComment(scanner *Scanner) {
-	for scanner.Current != 0 {
-		if scanner.Current == '\n' {
+	for scanner.Current != nullRune {
+		if IsDigit(scanner.Current) {
+			num.WriteRune(scanner.Current)
+			lastValidPos = scanner.GetPosition()
+		} else if scanner.Current == '.' && !isDotted {
+			peek := scanner.Peek()
+			if !IsDigit(peek) {
+				break
+			}
+			isDotted = true
+			num.WriteRune(scanner.Current)
+			lastValidPos = scanner.GetPosition()
+		} else {
 			break
 		}
 		scanner.Next()
 	}
-	scanner.Next()
+
+	resultStr := num.String()
+	if strings.HasSuffix(resultStr, ".") {
+		return nil, exception.NewSyntaxException(
+			"Numbers cannot end with a dot",
+			NewLocation(l.File, lastValidPos, lastValidPos),
+		)
+	}
+
+	return NewToken(
+		TT_NUMBER,
+		resultStr,
+		NewLocation(l.File, startPos, lastValidPos),
+	), nil
 }
 
-func (l *Lexer) GetNumberToken(scanner *Scanner) (*Token, BaseError) {
-	marker := scanner.CreateMarker()
-	marker.MarkStart()
+func (l *Lexer) ReadIdent(scanner *Scanner) (*Token, exception.IException) {
+	startPos := scanner.GetPosition()
+	var ident strings.Builder
 
-	startIdx := scanner.Index
-	isDot := false
+	ident.WriteRune(scanner.Current)
 
-	for scanner.Current != 0 {
-		if isDigit(scanner.Current) {
+	lastValidPos := startPos
+
+	scanner.Next()
+	for scanner.Current != nullRune {
+		if IsAlphaNumeric(scanner.Current) {
+			ident.WriteRune(scanner.Current)
+			lastValidPos = scanner.GetPosition()
+		} else {
+			break
+		}
+		scanner.Next()
+	}
+
+	resultStr := ident.String()
+
+	return NewToken(
+		TT_IDENT,
+		resultStr,
+		NewLocation(l.File, startPos, lastValidPos),
+	), nil
+}
+
+func (l *Lexer) ReadString(scanner *Scanner) (*Token, exception.IException) {
+	startPos := scanner.GetPosition()
+	var value strings.Builder
+
+	scanner.Next()
+	lastPos := startPos
+
+	for scanner.Current != nullRune {
+		if scanner.Current == '"' {
+			endPos := scanner.GetPosition()
 			scanner.Next()
-		} else if scanner.Current == '.' {
-			if isDot {
-				return nil, NewInvalidCharacterError(
-					"Invalid character: '"+string(scanner.Current)+"'",
-					scanner.GetErrorLocation(),
+			return NewToken(
+				TT_STRING,
+				value.String(),
+				NewLocation(l.File, startPos, endPos),
+			), nil
+		}
+
+		if scanner.Current == '\\' {
+			scanner.Next()
+			switch scanner.Current {
+			case 'n':
+				value.WriteRune('\n')
+			case 't':
+				value.WriteRune('\t')
+			case 'r':
+				value.WriteRune('\r')
+			case '\\':
+				value.WriteRune('\\')
+			case '"':
+				value.WriteRune('"')
+			default:
+				return nil, exception.NewSyntaxException(
+					fmt.Sprintf("Invalid escape sequence '\\%s'", string(scanner.Current)),
+					NewLocation(l.File, scanner.GetPosition(), scanner.GetPosition()),
 				)
 			}
-			isDot = true
+			lastPos = scanner.GetPosition()
 			scanner.Next()
-		} else {
-			break
+			continue
 		}
 
-	}
-
-	marker.MarkEnd()
-
-	literal := string(scanner.Code[startIdx:scanner.Index])
-	loc, _ := marker.GetLocation()
-
-	return NewToken(TOKEN_NUMBER, literal, loc), nil
-}
-
-func (l *Lexer) GetIdentifierToken(scanner *Scanner) (*Token, BaseError) {
-	marker := scanner.CreateMarker()
-	marker.MarkStart()
-
-	startIdx := scanner.Index
-	for scanner.Current != 0 {
-		if isAlphaNumeric(scanner.Current) || scanner.Current == '_' {
-			scanner.Next()
-
-		} else {
-			break
-		}
-	}
-
-	marker.MarkEnd()
-	literal := string(scanner.Code[startIdx:scanner.Index])
-
-	loc, _ := marker.GetLocation()
-
-	tokenType := TOKEN_IDENTIFIER
-	if _, ok := Keywords[literal]; ok {
-		tokenType = TOKEN_KEYWORD
-	}
-
-	return NewToken(tokenType, literal, loc), nil
-}
-
-func (l *Lexer) GetStringToken(scanner *Scanner, allowNewline bool, matcher rune) (*Token, BaseError) {
-	marker := scanner.CreateMarker()
-	marker.MarkStart()
-
-	scanner.Next()
-	startIdx := scanner.Index
-	for scanner.Current != 0 {
-		if scanner.Current == '\n' && !allowNewline {
-			return nil, NewInvalidCharacterError(
-				"Invalid character: '"+string(scanner.Current)+"'",
-				scanner.GetErrorLocation(),
+		if scanner.Current == '\n' {
+			return nil, exception.NewSyntaxException(
+				"Unterminated string literal",
+				NewLocation(l.File, startPos, lastPos),
 			)
-		} else if scanner.Current == matcher {
-			break
-		} else {
-			scanner.Next()
 		}
+
+		value.WriteRune(scanner.Current)
+		lastPos = scanner.GetPosition()
+		scanner.Next()
 	}
 
-	if scanner.Current == 0 {
-		return nil, NewInvalidCharacterError(
-			"EOF when scanning string",
-			scanner.GetErrorLocation(),
-		)
-	}
-
-	marker.MarkEnd()
-	scanner.Next()
-
-	literal := string(scanner.Code[startIdx : scanner.Index-1])
-	loc, _ := marker.GetLocation()
-
-	return NewToken(TOKEN_STRING, literal, loc), nil
-
+	return nil, exception.NewSyntaxException(
+		"Unterminated string literal",
+		NewLocation(l.File, startPos, lastPos),
+	)
 }
 
-func (l *Lexer) getSimpleToken(scanner *Scanner, t TokenType) *Token {
-	marker := scanner.CreateMarker()
-	marker.MarkStart()
-	literal := string(scanner.Current)
-	marker.MarkEnd()
+func (l *Lexer) Start(code string) (TokenList, exception.IException) {
+	tokens := make(TokenList, 0)
+	scanner := NewScanner(code)
 	scanner.Next()
-	loc, _ := marker.GetLocation()
-	return NewToken(t, literal, loc)
-}
+	scanner.skipWhitespace()
 
-func (l *Lexer) Parse(code string, file string) (ListToken, BaseError) {
-	var tokens ListToken
-	scanner := NewScanner(code, file)
-	scanner.Next()
+	for scanner.Current != nullRune {
+		switch {
+		case scanner.Current == ' ' || scanner.Current == '\t':
+			scanner.Next()
 
-	for scanner.Current != 0 {
-		switch scanner.Current {
-		case '\t', '\r', ' ':
+		case scanner.Current == '"':
+			token, err := l.ReadString(scanner)
+			if err != nil {
+				return nil, err
+			}
+
+			tokens = append(tokens, token)
+			continue
+
+		case IsDigit(scanner.Current):
+			token, err := l.ReadNumber(scanner)
+			if err != nil {
+				return nil, err
+			}
+
+			tokens = append(tokens, token)
+			continue
+
+		case IsAlpha(scanner.Current):
+			token, err := l.ReadIdent(scanner)
+			if err != nil {
+				return nil, err
+			}
+
+			tokens = append(tokens, token)
+			continue
+
+		case scanner.Current == '{':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_LBRACE,
+				"{",
+				NewLocation(l.File, currentPos, currentPos),
+			))
 			scanner.Next()
 			continue
-		case '#':
-			l.SkipComment(scanner)
+
+		case scanner.Current == '}':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_RBRACE,
+				"}",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '\n':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_NEWLINE))
+
+		case scanner.Current == '(':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_LPAREN,
+				"(",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '(':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_LEFT_PAREN))
+
+		case scanner.Current == ')':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_RPAREN,
+				")",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case ')':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_RIGHT_PAREN))
+
+		case scanner.Current == '[':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_LSQUARE,
+				"[",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '{':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_LEFT_BRACE))
+
+		case scanner.Current == ']':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_RSQUARE,
+				"]",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '}':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_RIGHT_BRACE))
+
+		case scanner.Current == ':':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_COLON,
+				":",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '[':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_LEFT_SQUARE))
+
+		case scanner.Current == '.':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_DOT,
+				".",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case ']':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_RIGHT_SQUARE))
+
+		case scanner.Current == ',':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_COMMA,
+				",",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case ':':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_COLON))
+
+		case scanner.Current == '@':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_DECORATOR,
+				"@",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case ',':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_COMMA))
+
+		case scanner.Current == '?':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_QUES,
+				"?",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '@':
-			tokens = append(tokens, l.getSimpleToken(scanner, TOKEN_ANNOTATION))
+
+		case scanner.Current == '<':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_OP,
+				"<",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
-		case '+', '-', '*', '/', '%', '^', '=', '!', '<', '>', '&', '|':
-			tok := l.getOperatorToken(scanner)
-			tokens = append(tokens, tok)
+
+		case scanner.Current == '>':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_OP,
+				">",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
 			continue
+
+		case scanner.Current == '\n':
+			currentPos := scanner.GetPosition()
+			tokens = append(tokens, NewToken(
+				TT_NEWLINE,
+				"Newline",
+				NewLocation(l.File, currentPos, currentPos),
+			))
+			scanner.Next()
+			continue
+
+		default:
+			currentPos := scanner.GetPosition()
+			return nil, exception.NewSyntaxException(
+				fmt.Sprintf("Invalid character '%s' ", string(scanner.Current)),
+				NewLocation(
+					l.File,
+					currentPos,
+					currentPos,
+				),
+			)
 
 		}
-
-		if isDigit(scanner.Current) {
-			tok, err := l.GetNumberToken(scanner)
-			if err != nil {
-				return nil, err
-			}
-			tokens = append(tokens, tok)
-			continue
-		}
-
-		if isAlpha(scanner.Current) || scanner.Current == '_' {
-			tok, err := l.GetIdentifierToken(scanner)
-			if err != nil {
-				return nil, err
-			}
-			tokens = append(tokens, tok)
-			continue
-		}
-
-		if scanner.Current == '`' || scanner.Current == '"' {
-			char := scanner.Current
-			allowNewline := (char == '`')
-
-			tok, err := l.GetStringToken(scanner, allowNewline, char)
-			if err != nil {
-				return nil, err
-			}
-			tokens = append(tokens, tok)
-			continue
-		}
-
-		return nil, NewInvalidCharacterError(
-			"Invalid character: '"+string(scanner.Current)+"'",
-			scanner.GetErrorLocation(),
-		)
 	}
 
-	tokens = append(tokens, NewToken(TOKEN_EOF, "", scanner.GetLocation()))
+	tokens = append(tokens, NewToken(TT_EOF, "", NewLocation(l.File, scanner.GetPosition(), scanner.GetPosition())))
+
 	return tokens, nil
+
 }
 
-func NewLexer() *Lexer {
-	return &Lexer{}
+func NewLexer(file string) *Lexer {
+	return &Lexer{File: file}
 }

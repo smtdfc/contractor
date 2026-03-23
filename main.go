@@ -1,20 +1,34 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-
-	"github.com/smtdfc/contractor/cmd"
+	"github.com/smtdfc/contractor/exception"
+	"github.com/smtdfc/contractor/parser"
 )
 
 func main() {
+	code := `
+	model A{}
+	model A{}
+	`
 
-	var rootCmd = &cobra.Command{
-		Use:     "contractor",
-		Short:   "Type-Safe IDL & Code Generation Toolchain",
-		Long:    "Contractor is a specialized Interface Definition Language (IDL) designed to enforce data integrity across distributed systems. It provides a robust mechanism to define cross-platform data contracts, generating validated and idiomatic code for TypeScript and Go, eliminating the risks of manual synchronization.",
-		Version: "1.0.0",
+	lexer := parser.NewLexer("test.contract")
+	tokens, err := lexer.Start(code)
+	if err != nil {
+		exception.PrintException(err, code)
 	}
 
-	cmd.InitAllCommand(rootCmd)
-	rootCmd.Execute()
+	parser.PrintTokenList(tokens)
+	p := parser.NewParser("test.contract", tokens)
+	ast, err := p.Parse()
+	if err != nil {
+		exception.PrintException(err, code)
+	} else {
+		parser.PrintAST(ast, 1)
+	}
+
+	checker := parser.NewTypeChecker()
+	err = checker.Check(ast)
+	if err != nil {
+		exception.PrintException(err, code)
+	}
 }

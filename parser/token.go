@@ -1,70 +1,56 @@
 package parser
 
-import (
-	"fmt"
-)
+import "fmt"
 
-type TokenType int
+var count = 0
 
-var Keywords map[string]any = map[string]any{
-	"model": "",
-	"rest":  "",
-	"event": "",
+func ins() TokenType {
+	count++
+	return TokenType(fmt.Sprintf("%d", count))
 }
 
-const (
-	TOKEN_NUMBER TokenType = iota
-	TOKEN_STRING
-	TOKEN_BOOL
-	TOKEN_NULL
-	TOKEN_IDENTIFIER
-	TOKEN_KEYWORD
-	TOKEN_OPERATOR
-	TOKEN_COMMA
-	TOKEN_COLON
-	TOKEN_RIGHT_PAREN
-	TOKEN_LEFT_PAREN
-	TOKEN_RIGHT_BRACE
-	TOKEN_LEFT_BRACE
-	TOKEN_RIGHT_SQUARE
-	TOKEN_LEFT_SQUARE
-	TOKEN_ANNOTATION
-	TOKEN_NEWLINE
-	TOKEN_EOF
+type TokenType string
+
+var (
+	TT_STRING    TokenType = ins()
+	TT_NUMBER    TokenType = ins()
+	TT_IDENT     TokenType = ins()
+	TT_EOF       TokenType = ins()
+	TT_LBRACE    TokenType = ins()
+	TT_RBRACE    TokenType = ins()
+	TT_LPAREN    TokenType = ins()
+	TT_RPAREN    TokenType = ins()
+	TT_LSQUARE   TokenType = ins()
+	TT_RSQUARE   TokenType = ins()
+	TT_COLON     TokenType = ins()
+	TT_DOT       TokenType = ins()
+	TT_COMMA     TokenType = ins()
+	TT_DECORATOR TokenType = ins()
+	TT_QUES      TokenType = ins()
+	TT_NEWLINE   TokenType = ins()
+	TT_OP        TokenType = ins()
 )
 
 type Token struct {
 	Type  TokenType
 	Value string
-	Loc   *TokenLocation
+	Loc   *Location
 }
 
-func (t *Token) ToString() string {
-	return fmt.Sprintf("%d : %s", t.Type, t.Value)
+func (t *Token) String() string {
+	return fmt.Sprintf("Type: %s | Value: %s | Loc: %s", t.Type, t.Value, t.Loc)
 }
 
-func (t *Token) HasType(tt TokenType) bool {
-	return t.Type == tt
+func (t *Token) Match(t_ TokenType, value string) bool {
+	return t.Type == t_ && t.Value == value
 }
 
-func (t *Token) Match(tt TokenType, value string) bool {
-	return t.Type == tt && t.Value == value
+func (t *Token) MatchType(t_ TokenType) bool {
+	return t.Type == t_
 }
 
-func (t *Token) Copy() *Token {
-	return &Token{
-		Type:  t.Type,
-		Value: t.Value,
-		Loc:   t.Loc,
-	}
+func NewToken(t TokenType, value string, loc *Location) *Token {
+	return &Token{Type: t, Value: value, Loc: loc}
 }
 
-type ListToken []*Token
-
-func NewToken(t TokenType, value string, loc *TokenLocation) *Token {
-	return &Token{
-		Type:  t,
-		Value: value,
-		Loc:   loc,
-	}
-}
+type TokenList []*Token

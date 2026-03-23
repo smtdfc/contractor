@@ -1,13 +1,23 @@
 package parser
 
+import "fmt"
+
 type Position struct {
-	Column int
-	Line   int
+	Col  int
+	Line int
 }
 
-func NewPosition(line int, column int) Position {
-	return Position{
-		Line:   line,
-		Column: column,
+func (p *Position) Copy() *Position {
+	return &Position{
+		Col:  p.Col,
+		Line: p.Line,
 	}
+}
+
+func (p *Position) String() string {
+	return fmt.Sprintf("(%d,%d)", p.Line, p.Col)
+}
+
+func NewPosition(line int, col int) *Position {
+	return &Position{Col: col, Line: line}
 }

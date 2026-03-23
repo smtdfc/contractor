@@ -2,131 +2,166 @@ package parser
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
-	"unicode"
 )
 
-func AnyToCamelCase(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
+func PrintTokenList(tokens TokenList) {
+	for _, token := range tokens {
+		fmt.Println(token)
+	}
+}
+
+func IsAlpha(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_'
+}
+
+func IsDigit(r rune) bool {
+	return r >= '0' && r <= '9'
+}
+
+func IsAlphaNumeric(r rune) bool {
+	return IsAlpha(r) || IsDigit(r)
+}
+
+func FormatTypeDecl(node *TypeDeclNode) string {
+	if node == nil {
+		return "<nil>"
+	}
+
+	if node.Name == nil {
+		return "<unnamed-type>"
+	}
+
+	if len(node.Generics) == 0 {
+		return node.Name.Value
+	}
+
+	args := make([]string, 0, len(node.Generics))
+	for _, generic := range node.Generics {
+		args = append(args, FormatTypeDecl(generic))
+	}
+
+	return fmt.Sprintf("%s<%s>", node.Name.Value, strings.Join(args, ", "))
+}
+
+func FormatTypeVars(vars []*TypeVarNode) string {
+	if len(vars) == 0 {
 		return ""
 	}
 
-	var builder strings.Builder
-	upperNext := false
-
-	runes := []rune(s)
-
-	for i, r := range runes {
-		if r == '_' || r == '-' || r == ' ' {
-			upperNext = true
-			continue
-		}
-
-		if upperNext {
-			builder.WriteRune(unicode.ToUpper(r))
-			upperNext = false
-		} else {
-			if i == 0 {
-				builder.WriteRune(unicode.ToLower(r))
-			} else {
-				builder.WriteRune(r)
-			}
+	items := make([]string, 0, len(vars))
+	for _, item := range vars {
+		if item != nil && item.Name != nil {
+			items = append(items, item.Name.Value)
 		}
 	}
 
-	return builder.String()
+	return fmt.Sprintf("<%s>", strings.Join(items, ", "))
 }
 
-func AnyToPascalCase(s string) string {
-	if s == "" {
-		return ""
+func FormatValueNode(value ASTValueNode) string {
+	if value == nil {
+		return "null"
 	}
 
-	var result strings.Builder
-	upperNext := true
-
-	for _, r := range s {
-		if r == '_' || r == '-' || r == ' ' {
-			upperNext = true
-			continue
+	switch v := value.(type) {
+	case *StringValueNode:
+		return fmt.Sprintf("\"%s\"", v.Value)
+	case *NumberValueNode:
+		return v.Value
+	case *BooleanValueNode:
+		return v.Values
+	case *NullValueNode:
+		return "null"
+	case *ArrayValueNode:
+		items := make([]string, 0, len(v.Values))
+		for _, item := range v.Values {
+			items = append(items, FormatValueNode(item))
 		}
-
-		if upperNext {
-			result.WriteRune(unicode.ToUpper(r))
-			upperNext = false
-		} else {
-			if unicode.IsUpper(r) {
-				result.WriteRune(r)
-			} else {
-				result.WriteRune(r)
-			}
-		}
-	}
-
-	res := result.String()
-	if len(res) > 0 {
-		return strings.ToUpper(res[:1]) + res[1:]
-	}
-	return res
-}
-
-func isNil(x any) bool {
-	if x == nil {
-		return true
-	}
-	value := reflect.ValueOf(x)
-	switch value.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
-		return value.IsNil()
+		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
 	default:
-		return false
+		return value.GetType()
 	}
 }
 
-func PrintError(err BaseError, code string) {
-	if err == nil {
+func FormatAnnotation(annotation *AnnotationNode) string {
+	if annotation == nil {
+		return "@<nil>"
+	}
+
+	name := "<unnamed-annotation>"
+	if annotation.Name != nil {
+		name = annotation.Name.Value
+	}
+
+	if len(annotation.Args) == 0 {
+		return fmt.Sprintf("@%s", name)
+	}
+
+	args := make([]string, 0, len(annotation.Args))
+	for _, arg := range annotation.Args {
+		args = append(args, FormatValueNode(arg))
+	}
+
+	return fmt.Sprintf("@%s(%s)", name, strings.Join(args, ", "))
+}
+
+func PrintAnnotations(annotations []*AnnotationNode, indent int) {
+	if len(annotations) == 0 {
 		return
 	}
 
-	loc := err.GetLocation()
-	fmt.Printf("\033[1;31m[%s]\033[0m: %s\n", err.GetName(), err.GetMessage())
-
-	if loc != nil {
-		fmt.Printf("  \033[1;33m->\033[0m %s:%d:%d\n", loc.File, loc.Start.Line, loc.Start.Column)
-		fmt.Println("   |")
-
-		lines := strings.Split(code, "\n")
-		lineIdx := loc.Start.Line - 1
-
-		if lineIdx >= 0 && lineIdx < len(lines) {
-			rawLine := lines[lineIdx]
-			displayLine := strings.ReplaceAll(rawLine, "\t", "    ")
-
-			fmt.Printf("%2d |  %s\n", loc.Start.Line, displayLine)
-			padding := ""
-			//tabCount := 0
-			for i := 0; i < loc.Start.Column-1 && i < len(rawLine); i++ {
-				if rawLine[i] == '\t' {
-					padding += "    "
-				} else {
-					padding += " "
-				}
-			}
-
-			length := 1
-			if loc.End.Line == loc.Start.Line {
-				length = loc.End.Column - loc.Start.Column
-			}
-			if length <= 0 {
-				length = 1
-			}
-
-			underline := strings.Repeat("^", length)
-			fmt.Printf("   |  %s\033[1;31m%s\033[0m\n", padding, underline)
-		}
-		fmt.Println("   |")
+	tab := strings.Repeat("  ", indent)
+	for _, annotation := range annotations {
+		fmt.Printf("%s├── Annotation: %s\n", tab, FormatAnnotation(annotation))
 	}
-	fmt.Println()
+}
+
+func PrintAST(node any, indent int) {
+	if node == nil {
+		return
+	}
+	tab := strings.Repeat("  ", indent)
+
+	switch v := node.(type) {
+	case *ProgramNode:
+		fmt.Printf("%s[Program]\n", tab)
+		for _, stmt := range v.Body {
+			PrintAST(stmt, indent+1)
+		}
+
+	case *ModelDeclNode:
+		modelName := "<unnamed-model>"
+		if v.Name != nil {
+			modelName = v.Name.Value
+		}
+		fmt.Printf("%s├── Model: %s%s\n", tab, modelName, FormatTypeVars(v.Generics))
+		PrintAnnotations(v.Annotations, indent+1)
+		for _, field := range v.Fields {
+			PrintAST(field, indent+2)
+		}
+
+	case *ModelFieldDeclNode:
+		opt := ""
+		if v.Optional {
+			opt = " (Optional)"
+		}
+		fieldName := "<unnamed-field>"
+		if v.Name != nil {
+			fieldName = v.Name.Value
+		}
+		fmt.Printf("%s├── Field: %s%s\n", tab, fieldName, opt)
+		PrintAnnotations(v.Annotations, indent+2)
+		PrintAST(v.Type, indent+3)
+
+	case *TypeDeclNode:
+		fmt.Printf("%s└── Type: %s\n", tab, FormatTypeDecl(v))
+
+	case *TypeVarNode:
+		typeVarName := "<unnamed-typevar>"
+		if v.Name != nil {
+			typeVarName = v.Name.Value
+		}
+		fmt.Printf("%s└── TypeVar: %s\n", tab, typeVarName)
+	}
 }
