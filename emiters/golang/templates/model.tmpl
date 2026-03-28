@@ -1,5 +1,5 @@
-type {{.Name}} struct{
-    {{.fields}}
+type {{.Name}} struct {
+{{- range $index, $field := .Fields }}
+    {{ $field }}
+{{- end }}
 }
-
-
