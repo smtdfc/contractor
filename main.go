@@ -13,10 +13,19 @@ func main() {
 	fileName := "test.contract"
 
 	code := `
+		model Address{
+			province: String
+			district: String
+			village: String
+		}
+
+
 		model User {
-			name:String
+			name: String
+			address: Address
 		}
 	`
+
 	lexer := parser.NewLexer(fileName)
 
 	tokens, err := lexer.Start(code)

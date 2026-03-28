@@ -426,10 +426,6 @@ func NewTypeChecker() *TypeChecker {
 	ctx.Add(NewTypeSymbol("Bool", true))
 	ctx.Add(NewTypeSymbol("Null", true))
 	ctx.Add(NewTypeSymbol("Any", true))
-	ctx.Add(NewTypeSymbol("string", true))
-	ctx.Add(NewTypeSymbol("int", true))
-	ctx.Add(NewTypeSymbol("float", true))
-	ctx.Add(NewTypeSymbol("bool", true))
 
 	arrayType := NewTypeSymbol("Array", true)
 	arrayType.Generics = append(arrayType.Generics, &TypeVarNode{Name: &IdentNode{Value: "T"}})

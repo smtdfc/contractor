@@ -13,20 +13,63 @@ import (
 
 type GoEmitter struct{}
 
+func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IException) {
+
+	switch ir.Name {
+	case "Int":
+		return "int", nil
+	case "Float":
+		return "float", nil
+	case "Bool":
+		return "bool", nil
+	case "Any":
+		return "any", nil
+	case "String":
+		return "string", nil
+	case "Array":
+		genericType, err := e.EmitType(ir.Generics[0])
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf(`[]%s`, genericType), nil
+	}
+	return "any", nil
+}
+
+func (e *GoEmitter) EmitType(ir *generator.TypeIR) (string, exception.IException) {
+
+	if ir.Kind == generator.TypeKindBuiltin {
+		return e.EmitBuildInType(ir)
+	}
+
+	return "any", nil
+}
+
 func (e *GoEmitter) EmitModelField(ir *generator.ModelField) (string, exception.IException) {
 	var sb strings.Builder
 	jsonTag := fmt.Sprintf(`json:"%s"`, helpers.ToCamelCase(ir.Name))
+
+	typeStr, err := e.EmitType(ir.Type)
+	if err != nil {
+		return "", err
+	}
+
+	if ir.IsOptional {
+		typeStr = fmt.Sprintf("*%s", typeStr)
+	}
+
 	data := map[string]string{
 		"Name": helpers.ToPascalCase(ir.Name),
-		"Type": "any",
+		"Type": typeStr,
 		"Tag":  jsonTag,
 	}
 
 	tmpl, _ := template.New("test").Parse(ModelFieldTemplate)
 
 	var tpl bytes.Buffer
-	err := tmpl.Execute(&tpl, data)
-	if err != nil {
+	err_ := tmpl.Execute(&tpl, data)
+	if err_ != nil {
 		return "", exception.NewEmitException("Error when emit go code", ir.Span.ToLocation())
 	}
 
