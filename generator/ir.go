@@ -69,21 +69,12 @@ func (p *ProgramIR) GetKind() string {
 }
 
 type ModelField struct {
-	Span            *SourceSpan
-	Name            string
-	Annotations     []AnnotationIR
-	Type            *TypeIR
-	IsOptional      bool
-	DefaultValue    *AnnotationArgIR
-	ValidationRules ModelValidationRuleList
-}
-
-type ModelValidationRuleList []*ModelValidationRule[any]
-
-type ModelValidationRule[T any] struct {
-	Name    string
-	Value   T
-	Message string
+	Span         *SourceSpan
+	Name         string
+	Annotations  []AnnotationIR
+	Type         *TypeIR
+	IsOptional   bool
+	DefaultValue *AnnotationArgIR
 }
 
 type TypeIR struct {

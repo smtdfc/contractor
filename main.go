@@ -12,7 +12,11 @@ import (
 func main() {
 	fileName := "test.contract"
 
-	code := ``
+	code := `
+		model User {
+			name:String
+		}
+	`
 	lexer := parser.NewLexer(fileName)
 
 	tokens, err := lexer.Start(code)

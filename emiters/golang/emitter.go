@@ -11,6 +11,10 @@ import (
 
 type GoEmitter struct{}
 
+func (e *GoEmitter) EmitModelField(ir *generator.ModelField) (string, exception.IException) {
+
+}
+
 func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IException) {
 	var sb strings.Builder
 
