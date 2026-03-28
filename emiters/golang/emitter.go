@@ -27,7 +27,7 @@ func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IEx
 	case "String":
 		return "string", nil
 	case "Array":
-		genericType, err := e.EmitType(ir.Generics[0])
+		genericType, err := e.EmitType(ir.Generics[0], false)
 		if err != nil {
 			return "", err
 		}
@@ -37,10 +37,38 @@ func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IEx
 	return "any", nil
 }
 
-func (e *GoEmitter) EmitType(ir *generator.TypeIR) (string, exception.IException) {
+func (e *GoEmitter) EmitModelType(ir *generator.TypeIR) (string, exception.IException) {
+	genericTypes := []string{}
+
+	for _, generic := range ir.Generics {
+		genericType, err := e.EmitType(generic, false)
+		if err != nil {
+			return "", err
+		}
+
+		genericTypes = append(genericTypes, genericType)
+	}
+
+	if len(genericTypes) > 0 {
+		return fmt.Sprintf(`*%s[%s]`, ir.Name, strings.Join(genericTypes, ",")), nil
+	}
+
+	return fmt.Sprintf(`*%s`, ir.Name), nil
+}
+
+func (e *GoEmitter) EmitType(ir *generator.TypeIR, isOptional bool) (string, exception.IException) {
 
 	if ir.Kind == generator.TypeKindBuiltin {
-		return e.EmitBuildInType(ir)
+		t, err := e.EmitBuildInType(ir)
+		if isOptional {
+			t = fmt.Sprintf("*%s", t)
+		}
+
+		return t, err
+	}
+
+	if ir.Kind == generator.TypeKindModel {
+		return e.EmitModelType(ir)
 	}
 
 	return "any", nil
@@ -50,13 +78,9 @@ func (e *GoEmitter) EmitModelField(ir *generator.ModelField) (string, exception.
 	var sb strings.Builder
 	jsonTag := fmt.Sprintf(`json:"%s"`, helpers.ToCamelCase(ir.Name))
 
-	typeStr, err := e.EmitType(ir.Type)
+	typeStr, err := e.EmitType(ir.Type, ir.IsOptional)
 	if err != nil {
 		return "", err
-	}
-
-	if ir.IsOptional {
-		typeStr = fmt.Sprintf("*%s", typeStr)
 	}
 
 	data := map[string]string{

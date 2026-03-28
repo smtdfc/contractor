@@ -14,9 +14,9 @@ func main() {
 
 	code := `
 		model Address{
-			province: String
-			district: String
-			village: String
+			province?: String
+			district?: String
+			village?: String
 		}
 
 
