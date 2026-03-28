@@ -12,10 +12,35 @@ type Parser struct {
 }
 
 func (p *Parser) ParseTypeDecl() (*TypeDeclNode, exception.IException) {
+	if p.Current == nil {
+		return nil, exception.NewSyntaxException("Excepted type name", p.Tokens[len(p.Tokens)-1].Loc)
+	}
+
 	var start, end *Location
 	start = p.Current.Loc
 	typeNode := TypeDeclNode{
 		Generics: make([]*TypeDeclNode, 0),
+	}
+
+	if p.Current.MatchType(TT_LSQUARE) {
+		p.Next()
+		if p.Current == nil || !p.Current.MatchType(TT_RSQUARE) {
+			if p.Current == nil {
+				return nil, exception.NewSyntaxException("Expected ']' in array type", p.Tokens[len(p.Tokens)-1].Loc)
+			}
+			return nil, exception.NewSyntaxException("Expected ']' in array type", p.Current.Loc)
+		}
+
+		p.Next()
+		elemType, err := p.ParseTypeDecl()
+		if err != nil {
+			return nil, err
+		}
+
+		typeNode.Name = &IdentNode{Value: "Array", Loc: start.Copy()}
+		typeNode.Generics = append(typeNode.Generics, elemType)
+		typeNode.Loc = NewLocation(start.File, start.Start, elemType.Loc.End)
+		return &typeNode, nil
 	}
 
 	if p.Current.MatchType(TT_IDENT) {
@@ -224,6 +249,122 @@ func (p *Parser) ParseModelDecl() (*ModelDeclNode, exception.IException) {
 	}
 
 	return &model, nil
+}
+
+func (p *Parser) ParseRestDecl() (*RestDeclNode, exception.IException) {
+	if p.Current == nil || !p.Current.Match(TT_IDENT, "rest") {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected 'rest'", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected 'rest'", p.Current.Loc)
+	}
+
+	start := p.Current.Loc
+	node := &RestDeclNode{}
+	p.Next()
+
+	if p.Current == nil || !p.Current.MatchType(TT_IDENT) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected identifier for rest endpoint name", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected identifier for rest endpoint name", p.Current.Loc)
+	}
+
+	node.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+	p.Next()
+	p.SkipNewLine()
+
+	if p.Current == nil || !p.Current.MatchType(TT_LBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected {", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected {", p.Current.Loc)
+	}
+
+	p.Next()
+	p.SkipNewLine()
+
+	seen := make(map[string]bool)
+
+	for p.Current != nil && !p.Current.MatchType(TT_RBRACE) && !p.Current.MatchType(TT_EOF) {
+		if p.Current.MatchType(TT_NEWLINE) {
+			p.SkipNewLine()
+			continue
+		}
+
+		if !p.Current.MatchType(TT_IDENT) {
+			return nil, exception.NewSyntaxException("Expected property name in rest body", p.Current.Loc)
+		}
+
+		key := p.Current.Value
+		if seen[key] {
+			return nil, exception.NewSyntaxException("Duplicate rest property '"+key+"'", p.Current.Loc)
+		}
+		seen[key] = true
+		p.Next()
+
+		if p.Current == nil || !p.Current.MatchType(TT_COLON) {
+			if p.Current == nil {
+				return nil, exception.NewSyntaxException("Expected ':' in rest property", p.Tokens[len(p.Tokens)-1].Loc)
+			}
+			return nil, exception.NewSyntaxException("Expected ':' in rest property", p.Current.Loc)
+		}
+
+		p.Next()
+
+		switch key {
+		case "method":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.MethodValue = v
+		case "path":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.PathValue = v
+		case "requestBody":
+			t, err := p.ParseTypeDecl()
+			if err != nil {
+				return nil, err
+			}
+			node.RequestBodyType = t
+		case "responseBody":
+			t, err := p.ParseTypeDecl()
+			if err != nil {
+				return nil, err
+			}
+			node.ResponseBodyType = t
+		case "queries":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.QueriesValue = v
+		default:
+			return nil, exception.NewSyntaxException("Unknown rest property '"+key+"'", p.Current.Loc)
+		}
+
+		if p.Current != nil && p.Current.MatchType(TT_COMMA) {
+			p.Next()
+		}
+
+		p.SkipNewLine()
+	}
+
+	if p.Current == nil || !p.Current.MatchType(TT_RBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected } at the end of rest declaration", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected } at the end of rest declaration", p.Current.Loc)
+	}
+
+	node.Loc = NewLocation(start.File, start.Start, p.Current.Loc.End)
+	p.Next()
+
+	return node, nil
 }
 
 func (p *Parser) SkipNewLine() {
@@ -448,6 +589,14 @@ func (p *Parser) Parse() (*ProgramNode, exception.IException) {
 
 		case p.Current.Match(TT_IDENT, "model"):
 			n, err := p.ParseModelDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			program.Body = append(program.Body, n)
+
+		case p.Current.Match(TT_IDENT, "rest"):
+			n, err := p.ParseRestDecl()
 			if err != nil {
 				return nil, err
 			}

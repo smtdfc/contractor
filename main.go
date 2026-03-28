@@ -1,34 +1,53 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/smtdfc/contractor/emiters/golang"
 	"github.com/smtdfc/contractor/exception"
+	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/parser"
 )
 
 func main() {
-	code := `
-	model A{}
-	model A{}
-	`
+	fileName := "test.contract"
 
-	lexer := parser.NewLexer("test.contract")
+	code := ``
+	lexer := parser.NewLexer(fileName)
+
 	tokens, err := lexer.Start(code)
 	if err != nil {
 		exception.PrintException(err, code)
+		return
 	}
 
-	parser.PrintTokenList(tokens)
-	p := parser.NewParser("test.contract", tokens)
+	p := parser.NewParser(fileName, tokens)
 	ast, err := p.Parse()
 	if err != nil {
 		exception.PrintException(err, code)
-	} else {
-		parser.PrintAST(ast, 1)
+		return
 	}
 
-	checker := parser.NewTypeChecker()
-	err = checker.Check(ast)
+	typeChecker := parser.NewTypeChecker()
+	err = typeChecker.Check(ast)
 	if err != nil {
 		exception.PrintException(err, code)
+		return
 	}
+
+	irGenerator := generator.NewIRGenerator()
+	ir, err := irGenerator.GenerateProgram(ast)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	goEmitter := golang.NewGoEmitter()
+	output, err := goEmitter.Emit(ir)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	fmt.Println(output)
 }

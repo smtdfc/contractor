@@ -1,0 +1,22 @@
+{
+  "sourceDir": "./contracts",
+  "extension": ".contract",
+  "targets": [
+    {
+      "language": "go",
+      "outDir": "./generated/go"
+    },
+    {
+      "language": "typescript",
+      "outDir": "./generated/typescript"
+    },
+    {
+      "language": "java",
+      "outDir": "./generated/java"
+    },
+    {
+      "language": "kotlin",
+      "outDir": "./generated/kotlin"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 package generator
 
+import "github.com/smtdfc/contractor/parser"
+
 type IR interface {
 	GetKind() string
 }
@@ -10,6 +12,18 @@ type SourceSpan struct {
 	StartCol  int
 	EndLine   int
 	EndCol    int
+}
+
+func (s *SourceSpan) ToLocation() *parser.Location {
+	if s == nil {
+		return nil
+	}
+
+	return parser.NewLocation(
+		s.File,
+		parser.NewPosition(s.StartLine, s.StartCol),
+		parser.NewPosition(s.EndLine, s.EndCol),
+	)
 }
 
 type AnnotationArgIR struct {
@@ -45,6 +59,15 @@ func (m *ModelIR) GetKind() string {
 	return "model"
 }
 
+type ProgramIR struct {
+	Models []*ModelIR
+	Rests  []*RestEndpointIR
+}
+
+func (p *ProgramIR) GetKind() string {
+	return "program"
+}
+
 type ModelField struct {
 	Span            *SourceSpan
 	Name            string
@@ -73,4 +96,18 @@ type TypeIR struct {
 
 func (t *TypeIR) GetKind() string {
 	return "type"
+}
+
+type RestEndpointIR struct {
+	Span             *SourceSpan
+	Name             string
+	Method           string
+	Path             string
+	RequestBodyType  *TypeIR
+	ResponseBodyType *TypeIR
+	Queries          []string
+}
+
+func (r *RestEndpointIR) GetKind() string {
+	return "rest-endpoint"
 }

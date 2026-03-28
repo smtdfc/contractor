@@ -150,7 +150,7 @@ func (l *Lexer) Start(code string) (TokenList, exception.IException) {
 
 	for scanner.Current != nullRune {
 		switch {
-		case scanner.Current == ' ' || scanner.Current == '\t':
+		case scanner.Current == ' ' || scanner.Current == '\t' || scanner.Current == '\r':
 			scanner.Next()
 
 		case scanner.Current == '"':

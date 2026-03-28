@@ -36,6 +36,10 @@ func FormatTypeDecl(node *TypeDeclNode) string {
 		return node.Name.Value
 	}
 
+	if node.Name.Value == "Array" && len(node.Generics) == 1 {
+		return fmt.Sprintf("[]%s", FormatTypeDecl(node.Generics[0]))
+	}
+
 	args := make([]string, 0, len(node.Generics))
 	for _, generic := range node.Generics {
 		args = append(args, FormatTypeDecl(generic))
@@ -140,6 +144,18 @@ func PrintAST(node any, indent int) {
 		for _, field := range v.Fields {
 			PrintAST(field, indent+2)
 		}
+
+	case *RestDeclNode:
+		restName := "<unnamed-rest>"
+		if v.Name != nil {
+			restName = v.Name.Value
+		}
+		fmt.Printf("%s├── Rest: %s\n", tab, restName)
+		fmt.Printf("%s  ├── method: %s\n", tab, FormatValueNode(v.MethodValue))
+		fmt.Printf("%s  ├── path: %s\n", tab, FormatValueNode(v.PathValue))
+		fmt.Printf("%s  ├── requestBody: %s\n", tab, FormatTypeDecl(v.RequestBodyType))
+		fmt.Printf("%s  ├── responseBody: %s\n", tab, FormatTypeDecl(v.ResponseBodyType))
+		fmt.Printf("%s  └── queries: %s\n", tab, FormatValueNode(v.QueriesValue))
 
 	case *ModelFieldDeclNode:
 		opt := ""
