@@ -1,0 +1,8 @@
+var {{.Name}} = &RestInfo{
+    Path: {{.Path}},
+    Method: {{.Method}},
+    Queries: []string{ {{.Queries}} },
+}
+
+type {{.Name}}RequestBody = {{.RequestType}}
+type {{.Name}}ResponseBody = {{.ResponseType}}

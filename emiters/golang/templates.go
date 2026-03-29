@@ -16,3 +16,6 @@ var BaseTemplate string
 
 //go:embed templates/validator.tmpl
 var ValidatorTemplate string
+
+//go:embed templates/rest.tmpl
+var RestTemplate string

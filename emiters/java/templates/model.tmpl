@@ -1,0 +1,10 @@
+  public static class {{.Name}}{{.TypeParams}} {
+{{- range $index, $field := .Fields }}
+    {{ $field }}
+{{- end }}
+
+{{- if .ConstructorCode }}
+{{.ConstructorCode}}
+{{- end }}
+{{.ValidatorCode}}
+  }

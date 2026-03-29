@@ -1,0 +1,27 @@
+import java.util.*;
+import java.util.regex.*;
+import java.net.*;
+import java.time.*;
+
+public class GeneratedContract {
+
+{{.Runtime}}
+
+{{.Models}}
+{{- if .HasRests }}
+
+  public static class RestInfo {
+    public final String path;
+    public final String method;
+    public final List<String> queries;
+
+    public RestInfo(String path, String method, List<String> queries) {
+      this.path = path;
+      this.method = method;
+      this.queries = queries;
+    }
+  }
+
+{{.Rests}}
+{{- end }}
+}

@@ -1,0 +1,7 @@
+  public static final RestInfo Rest{{.RestName}} = new RestInfo(
+    {{.Path}},
+    {{.Method}},
+    Arrays.asList({{.Queries}})
+  );
+  public static final String {{.RestName}}RequestBody = {{.RequestType}};
+  public static final String {{.RestName}}ResponseBody = {{.ResponseType}};

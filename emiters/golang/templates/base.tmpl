@@ -357,6 +357,7 @@ func isAllDigits(s string) bool {
 // Models
 {{.Models}}
 
+{{- if .HasRests }}
 // Rests
 type RestInfo struct {
     Path string
@@ -365,4 +366,5 @@ type RestInfo struct {
 }
 
 {{.Rests}}
+{{- end }}
 

@@ -321,16 +321,24 @@ func (e *GoEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IE
 		queryValues = append(queryValues, strconv.Quote(q))
 	}
 
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("var %s = &RestInfo{\n", restName))
-	sb.WriteString(fmt.Sprintf("\tPath: %s,\n", strconv.Quote(ir.Path)))
-	sb.WriteString(fmt.Sprintf("\tMethod: %s,\n", strconv.Quote(ir.Method)))
-	sb.WriteString(fmt.Sprintf("\tQueries: []string{%s},\n", strings.Join(queryValues, ",")))
-	sb.WriteString("}\n\n")
-	sb.WriteString(fmt.Sprintf("type %sRequestBody = %s\n", restName, requestType))
-	sb.WriteString(fmt.Sprintf("type %sResponseBody = %s\n", restName, responseType))
+	tmpl, _ := template.New("go-rest").Parse(RestTemplate)
 
-	return sb.String(), nil
+	data := map[string]any{
+		"Name":         restName,
+		"Path":         strconv.Quote(ir.Path),
+		"Method":       strconv.Quote(ir.Method),
+		"Queries":      strings.Join(queryValues, ", "),
+		"RequestType":  requestType,
+		"ResponseType": responseType,
+	}
+
+	var tpl bytes.Buffer
+	err := tmpl.Execute(&tpl, data)
+	if err != nil {
+		return "", exception.NewEmitException("Error when emit go code", ir.Span.ToLocation())
+	}
+
+	return tpl.String(), nil
 }
 
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
@@ -356,9 +364,10 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 		rests.WriteString("\n")
 	}
 
-	data := map[string]string{
-		"Models": models.String(),
-		"Rests":  rests.String(),
+	data := map[string]any{
+		"Models":   models.String(),
+		"Rests":    rests.String(),
+		"HasRests": len(ir.Rests) > 0,
 	}
 
 	tmpl, _ := template.New("test").Parse(BaseTemplate)
