@@ -1,0 +1,13 @@
+{{.Runtime}}
+
+{{.Models}}
+{{- if .Rests }}
+
+export type RestInfo = {
+  path: string;
+  method: string;
+  queries: string[];
+};
+
+{{.Rests}}
+{{- end }}

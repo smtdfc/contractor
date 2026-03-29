@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/smtdfc/contractor/emiters/golang"
+	"github.com/smtdfc/contractor/emiters/typescript"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/parser"
@@ -33,7 +34,10 @@ func main() {
 		rest HelloW{
 			path:"/get-products"
 			method:"GET"
+			requestBody: Address<String>
 		}
+
+		
 	`
 
 	lexer := parser.NewLexer(fileName)
@@ -67,6 +71,15 @@ func main() {
 
 	goEmitter := golang.NewGoEmitter()
 	output, err := goEmitter.Emit(ir)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	fmt.Println(output)
+
+	tsEmitter := typescript.NewTypescriptEmitter()
+	output, err = tsEmitter.Emit(ir)
 	if err != nil {
 		exception.PrintException(err, code)
 		return
