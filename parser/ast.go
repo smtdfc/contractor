@@ -179,8 +179,8 @@ func (n *ArrayValueNode) GetKind() string {
 }
 
 type BooleanValueNode struct {
-	Values string
-	Loc    *Location
+	Value string
+	Loc   *Location
 }
 
 func (n *BooleanValueNode) GetLocation() *Location {

@@ -1,12 +1,16 @@
 package generator
 
 import (
-	"strconv"
+	"slices"
 	"strings"
 
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/parser"
 )
+
+var validatorAnnotations = []string{
+	"IsEmail",
+}
 
 type IRGenerator struct {
 	builtinTypes map[string]struct{}
@@ -19,12 +23,7 @@ func NewIRGenerator() *IRGenerator {
 			"Int":    {},
 			"Float":  {},
 			"Bool":   {},
-			"string": {},
-			"int":    {},
-			"float":  {},
-			"bool":   {},
 			"Array":  {},
-			"Boo":    {},
 			"Null":   {},
 			"Any":    {},
 		},
@@ -119,6 +118,11 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 			continue
 		}
 
+		validators, err := g.extractValidator(field)
+		if err != nil {
+			return nil, err
+		}
+
 		fieldType := g.typeToIR(field.Type, modelSymbols, genericSymbols)
 		fieldIR := &ModelField{
 			Span:        toSourceSpan(field.Loc),
@@ -126,13 +130,13 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 			Annotations: g.annotationsToIR(field.Annotations),
 			Type:        fieldType,
 			IsOptional:  field.Optional,
+			Validators:  validators,
 		}
 
 		fields = append(fields, fieldIR)
 	}
 
 	annotations := g.annotationsToIR(node.Annotations)
-
 	return &ModelIR{
 		Span:                toSourceSpan(node.Loc),
 		Name:                node.Name.Value,
@@ -142,6 +146,27 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 		IsCreateConstructor: hasAnnotation(annotations, "CreateConstructor", "Constructor"),
 		IsCreateMapper:      hasAnnotation(annotations, "CreateMapper", "Mapper", "Mapping"),
 	}, nil
+}
+
+func (g *IRGenerator) extractValidator(node *parser.ModelFieldDeclNode) ([]*FieldValidator, exception.IException) {
+
+	validators := []*FieldValidator{}
+
+	for _, anno := range node.Annotations {
+		if slices.Contains(validatorAnnotations, anno.Name.Value) {
+			args := []*ValueIR{}
+			for _, arg := range anno.Args {
+				value := g.valueToIR(arg)
+				args = append(args, value)
+			}
+
+			validators = append(validators, &FieldValidator{
+				Name: anno.Name.Value,
+			})
+		}
+	}
+
+	return validators, nil
 }
 
 func (g *IRGenerator) restToIR(node *parser.RestDeclNode, modelSymbols map[string]struct{}) (*RestEndpointIR, exception.IException) {
@@ -248,19 +273,19 @@ func (g *IRGenerator) typeToIR(node *parser.TypeDeclNode, modelSymbols map[strin
 	}
 }
 
-func (g *IRGenerator) annotationsToIR(nodes []*parser.AnnotationNode) []AnnotationIR {
-	items := make([]AnnotationIR, 0, len(nodes))
+func (g *IRGenerator) annotationsToIR(nodes []*parser.AnnotationNode) []*AnnotationIR {
+	items := make([]*AnnotationIR, 0, len(nodes))
 	for _, node := range nodes {
 		if node == nil || node.Name == nil {
 			continue
 		}
 
-		args := make([]AnnotationArgIR, 0, len(node.Args))
+		args := make([]*ValueIR, 0, len(node.Args))
 		for _, arg := range node.Args {
 			args = append(args, g.valueToIR(arg))
 		}
 
-		items = append(items, AnnotationIR{
+		items = append(items, &AnnotationIR{
 			Name: node.Name.Value,
 			Args: args,
 		})
@@ -269,37 +294,28 @@ func (g *IRGenerator) annotationsToIR(nodes []*parser.AnnotationNode) []Annotati
 	return items
 }
 
-func (g *IRGenerator) valueToIR(node parser.ASTValueNode) AnnotationArgIR {
+func (g *IRGenerator) valueToIR(node parser.ASTValueNode) *ValueIR {
 	if node == nil {
-		return AnnotationArgIR{Kind: "Null", Value: nil}
+		return &ValueIR{Kind: "Null", Value: "null"}
 	}
 
 	switch v := node.(type) {
 	case *parser.StringValueNode:
-		return AnnotationArgIR{Kind: v.GetKind(), Value: v.Value}
+		return &ValueIR{Kind: v.GetKind(), Value: v.Value}
 	case *parser.NumberValueNode:
-		if i, err := strconv.ParseInt(v.Value, 10, 64); err == nil {
-			return AnnotationArgIR{Kind: v.GetKind(), Value: i}
-		}
-
-		if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
-			return AnnotationArgIR{Kind: v.GetKind(), Value: f}
-		}
-
-		return AnnotationArgIR{Kind: v.GetKind(), Value: v.Value}
+		return &ValueIR{Kind: v.GetKind(), Value: v.Value}
 	case *parser.BooleanValueNode:
-		parsed := strings.EqualFold(v.Values, "true")
-		return AnnotationArgIR{Kind: v.GetKind(), Value: parsed}
+		return &ValueIR{Kind: v.GetKind(), Value: v.Value}
 	case *parser.NullValueNode:
-		return AnnotationArgIR{Kind: v.GetKind(), Value: nil}
+		return &ValueIR{Kind: v.GetKind(), Value: "null"}
 	case *parser.ArrayValueNode:
 		values := make([]any, 0, len(v.Values))
 		for _, item := range v.Values {
-			values = append(values, g.valueToIR(item).Value)
+			values = append(values, g.valueToIR(item))
 		}
-		return AnnotationArgIR{Kind: v.GetKind(), Value: values}
+		return &ValueIR{Kind: v.GetKind(), Value: values}
 	default:
-		return AnnotationArgIR{Kind: node.GetKind(), Value: nil}
+		return &ValueIR{Kind: node.GetKind(), Value: nil}
 	}
 }
 
@@ -317,7 +333,7 @@ func toSourceSpan(loc *parser.Location) *SourceSpan {
 	}
 }
 
-func hasAnnotation(annotations []AnnotationIR, names ...string) bool {
+func hasAnnotation(annotations []*AnnotationIR, names ...string) bool {
 	if len(annotations) == 0 || len(names) == 0 {
 		return false
 	}

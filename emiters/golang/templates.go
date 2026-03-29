@@ -10,3 +10,6 @@ var ModelFieldTemplate string
 
 //go:embed templates/create_constructor.tmpl
 var CreateConstructorTemplate string
+
+//go:embed templates/base.tmpl
+var BaseTemplate string

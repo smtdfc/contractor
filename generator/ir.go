@@ -26,14 +26,14 @@ func (s *SourceSpan) ToLocation() *parser.Location {
 	)
 }
 
-type AnnotationArgIR struct {
+type ValueIR struct {
 	Kind  string
 	Value any
 }
 
 type AnnotationIR struct {
 	Name string
-	Args []AnnotationArgIR
+	Args []*ValueIR
 }
 
 type TypeKind string
@@ -49,7 +49,7 @@ type ModelIR struct {
 	Span                *SourceSpan
 	Name                string
 	TypeParams          []string
-	Annotations         []AnnotationIR
+	Annotations         []*AnnotationIR
 	Fields              []*ModelField
 	IsCreateConstructor bool
 	IsCreateMapper      bool
@@ -71,10 +71,16 @@ func (p *ProgramIR) GetKind() string {
 type ModelField struct {
 	Span         *SourceSpan
 	Name         string
-	Annotations  []AnnotationIR
+	Annotations  []*AnnotationIR
 	Type         *TypeIR
 	IsOptional   bool
-	DefaultValue *AnnotationArgIR
+	DefaultValue *ValueIR
+	Validators   []*FieldValidator
+}
+
+type FieldValidator struct {
+	Name string
+	Args []*ValueIR
 }
 
 type TypeIR struct {

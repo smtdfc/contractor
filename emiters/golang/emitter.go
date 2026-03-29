@@ -199,6 +199,7 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 }
 
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
+	var models strings.Builder
 	var sb strings.Builder
 
 	for _, model := range ir.Models {
@@ -206,9 +207,19 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 		if err != nil {
 			return "", err
 		}
-		sb.WriteString(code)
+		models.WriteString(code)
 	}
 
+	data := map[string]string{
+		"Models": models.String(),
+	}
+
+	tmpl, _ := template.New("test").Parse(BaseTemplate)
+
+	var tpl bytes.Buffer
+	_ = tmpl.Execute(&tpl, data)
+
+	sb.WriteString(tpl.String())
 	return sb.String(), nil
 }
 

@@ -393,7 +393,7 @@ func (p *Parser) ParseValue() (ASTValueNode, exception.IException) {
 
 	case p.Current.MatchType(TT_IDENT):
 		if p.Current.Value == "true" || p.Current.Value == "false" {
-			node := &BooleanValueNode{Values: p.Current.Value, Loc: p.Current.Loc.Copy()}
+			node := &BooleanValueNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
 			p.Next()
 			return node, nil
 		}

@@ -74,7 +74,7 @@ func FormatValueNode(value ASTValueNode) string {
 	case *NumberValueNode:
 		return v.Value
 	case *BooleanValueNode:
-		return v.Values
+		return v.Value
 	case *NullValueNode:
 		return "null"
 	case *ArrayValueNode:
