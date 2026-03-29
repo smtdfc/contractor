@@ -37,6 +37,10 @@ func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IEx
 	return "any", nil
 }
 
+func (e *GoEmitter) EmitGenericType(ir *generator.TypeIR) (string, exception.IException) {
+	return ir.Name, nil
+}
+
 func (e *GoEmitter) EmitModelType(ir *generator.TypeIR) (string, exception.IException) {
 	genericTypes := []string{}
 
@@ -71,6 +75,10 @@ func (e *GoEmitter) EmitType(ir *generator.TypeIR, isOptional bool) (string, exc
 		return e.EmitModelType(ir)
 	}
 
+	if ir.Kind == generator.TypeKindGeneric {
+		return e.EmitGenericType(ir)
+	}
+
 	return "any", nil
 }
 
@@ -101,6 +109,53 @@ func (e *GoEmitter) EmitModelField(ir *generator.ModelField) (string, exception.
 	return sb.String(), nil
 }
 
+func (e *GoEmitter) EmitTypeParams(params []string, constraint bool) string {
+	if len(params) == 0 {
+		return ""
+	}
+
+	if constraint {
+		return fmt.Sprintf(`[%s any]`, strings.Join(params, ","))
+	}
+
+	return fmt.Sprintf(`[%s]`, strings.Join(params, ","))
+}
+
+func (e *GoEmitter) EmitCreateConstructor(ir *generator.ModelIR) (string, exception.IException) {
+	args := make([]string, 0, len(ir.Fields))
+	assignments := make([]string, 0, len(ir.Fields))
+
+	for _, field := range ir.Fields {
+		typeStr, err := e.EmitType(field.Type, field.IsOptional)
+		if err != nil {
+			return "", err
+		}
+
+		argName := helpers.ToCamelCase(field.Name)
+		fieldName := helpers.ToPascalCase(field.Name)
+		args = append(args, fmt.Sprintf("%s %s", argName, typeStr))
+		assignments = append(assignments, fmt.Sprintf("%s: %s,", fieldName, argName))
+	}
+
+	data := map[string]any{
+		"Name":        ir.Name,
+		"Args":        strings.Join(args, ", "),
+		"Assignments": assignments,
+		"TypeParams":  e.EmitTypeParams(ir.TypeParams, true),
+		"Generics":    e.EmitTypeParams(ir.TypeParams, false),
+	}
+
+	tmpl, _ := template.New("test").Parse(CreateConstructorTemplate)
+
+	var tpl bytes.Buffer
+	err := tmpl.Execute(&tpl, data)
+	if err != nil {
+		return "", exception.NewEmitException("Error when emit go code", ir.Span.ToLocation())
+	}
+
+	return tpl.String(), nil
+}
+
 func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IException) {
 	var sb strings.Builder
 	var fields = []string{}
@@ -115,8 +170,9 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 	}
 
 	data := map[string]any{
-		"Name":   ir.Name,
-		"Fields": fields,
+		"Name":       ir.Name,
+		"Fields":     fields,
+		"TypeParams": e.EmitTypeParams(ir.TypeParams, true),
 	}
 
 	tmpl, _ := template.New("test").Parse(ModelTemplate)
@@ -128,6 +184,17 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 	}
 
 	sb.WriteString(tpl.String())
+
+	if ir.IsCreateConstructor {
+		constructorCode, err := e.EmitCreateConstructor(ir)
+		if err != nil {
+			return "", err
+		}
+
+		sb.WriteString("\n")
+		sb.WriteString(constructorCode)
+	}
+
 	return sb.String(), nil
 }
 

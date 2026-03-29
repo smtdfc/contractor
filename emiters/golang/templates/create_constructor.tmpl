@@ -1,0 +1,8 @@
+func New{{.Name}}{{.TypeParams}}({{.Args}}) *{{.Name}}{{.Generics}}{
+    return &{{.Name}}{{.Generics}}{
+{{- range $index, $assignment := .Assignments }}
+        {{ $assignment }}
+{{- end }}
+    }
+}
+

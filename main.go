@@ -13,16 +13,18 @@ func main() {
 	fileName := "test.contract"
 
 	code := `
+		@CreateConstructor
 		model Address{
 			province?: String
 			district?: String
 			village?: String
 		}
 
-
-		model User {
+		@CreateConstructor
+		model User<T,U,K> {
 			name: String
 			address: Address
+			data: T
 		}
 	`
 
