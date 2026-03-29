@@ -121,6 +121,37 @@ func (e *GoEmitter) EmitTypeParams(params []string, constraint bool) string {
 	return fmt.Sprintf(`[%s]`, strings.Join(params, ","))
 }
 
+func (e *GoEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IException) {
+
+	if ir.Kind == "Number" {
+		return ir.Value.(string), nil
+	}
+
+	if ir.Kind == "String" {
+		return fmt.Sprintf(`"%s"`, ir.Value.(string)), nil
+	}
+
+	if ir.Kind == "Bool" {
+		return ir.Value.(string), nil
+	}
+
+	if ir.Kind == "Array" {
+		elements := []string{}
+		for _, ele := range ir.Value.([]*generator.ValueIR) {
+			value, err := e.EmitValue(ele)
+			if err != nil {
+				return "", err
+			}
+
+			elements = append(elements, value)
+		}
+
+		return fmt.Sprintf(`[%s]`, strings.Join(elements, ",")), nil
+	}
+
+	return "", nil
+}
+
 func (e *GoEmitter) EmitCreateConstructor(ir *generator.ModelIR) (string, exception.IException) {
 	args := make([]string, 0, len(ir.Fields))
 	assignments := make([]string, 0, len(ir.Fields))

@@ -309,7 +309,7 @@ func (g *IRGenerator) valueToIR(node parser.ASTValueNode) *ValueIR {
 	case *parser.NullValueNode:
 		return &ValueIR{Kind: v.GetKind(), Value: "null"}
 	case *parser.ArrayValueNode:
-		values := make([]any, 0, len(v.Values))
+		values := make([]*ValueIR, 0, len(v.Values))
 		for _, item := range v.Values {
 			values = append(values, g.valueToIR(item))
 		}
