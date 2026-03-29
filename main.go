@@ -29,6 +29,11 @@ func main() {
 			address: Address<T>
 			data: T
 		}
+
+		rest HelloW{
+			path:"/get-products"
+			method:"GET"
+		}
 	`
 
 	lexer := parser.NewLexer(fileName)

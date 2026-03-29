@@ -3,6 +3,7 @@ package golang
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -294,8 +295,47 @@ func (e *GoEmitter) EmitFieldValidator(ir *generator.FieldValidator, name string
 	return fmt.Sprintf(`if err := %s(instance.%s,%s); err != nil { return err }`, ir.Name, helpers.ToPascalCase(name), strings.Join(args, ",")), nil
 }
 
+func (e *GoEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IException) {
+	restName := helpers.ToPascalCase(ir.Name)
+
+	requestType := "any"
+	if ir.RequestBodyType != nil {
+		t, err := e.EmitType(ir.RequestBodyType, false)
+		if err != nil {
+			return "", err
+		}
+		requestType = t
+	}
+
+	responseType := "any"
+	if ir.ResponseBodyType != nil {
+		t, err := e.EmitType(ir.ResponseBodyType, false)
+		if err != nil {
+			return "", err
+		}
+		responseType = t
+	}
+
+	queryValues := make([]string, 0, len(ir.Queries))
+	for _, q := range ir.Queries {
+		queryValues = append(queryValues, strconv.Quote(q))
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("var %s = &RestInfo{\n", restName))
+	sb.WriteString(fmt.Sprintf("\tPath: %s,\n", strconv.Quote(ir.Path)))
+	sb.WriteString(fmt.Sprintf("\tMethod: %s,\n", strconv.Quote(ir.Method)))
+	sb.WriteString(fmt.Sprintf("\tQueries: []string{%s},\n", strings.Join(queryValues, ",")))
+	sb.WriteString("}\n\n")
+	sb.WriteString(fmt.Sprintf("type %sRequestBody = %s\n", restName, requestType))
+	sb.WriteString(fmt.Sprintf("type %sResponseBody = %s\n", restName, responseType))
+
+	return sb.String(), nil
+}
+
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var models strings.Builder
+	var rests strings.Builder
 	var sb strings.Builder
 
 	for _, model := range ir.Models {
@@ -306,8 +346,19 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 		models.WriteString(code)
 	}
 
+	for _, rest := range ir.Rests {
+		code, err := e.EmitRest(rest)
+		if err != nil {
+			return "", err
+		}
+
+		rests.WriteString(code)
+		rests.WriteString("\n")
+	}
+
 	data := map[string]string{
 		"Models": models.String(),
+		"Rests":  rests.String(),
 	}
 
 	tmpl, _ := template.New("test").Parse(BaseTemplate)

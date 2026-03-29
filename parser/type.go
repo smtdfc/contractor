@@ -21,6 +21,10 @@ type TypeSymbol struct {
 	Generics  []*TypeVarNode
 }
 
+type RestSymbol struct {
+	Name string
+}
+
 func (s *TypeSymbol) GetName() string {
 	return s.Name
 }
@@ -45,6 +49,26 @@ func (s *TypeSymbol) BuiltIn() bool {
 
 func NewTypeSymbol(name string, isBuiltIn bool) *TypeSymbol {
 	return &TypeSymbol{Name: name, IsBuiltIn: isBuiltIn, Generics: make([]*TypeVarNode, 0)}
+}
+
+func (s *RestSymbol) GetName() string {
+	return s.Name
+}
+
+func (s *RestSymbol) GetGenerics() []*TypeVarNode {
+	return nil
+}
+
+func (s *RestSymbol) GetKind() string {
+	return "rest"
+}
+
+func (s *RestSymbol) BuiltIn() bool {
+	return false
+}
+
+func NewRestSymbol(name string) *RestSymbol {
+	return &RestSymbol{Name: name}
 }
 
 type AnnotationSymbol struct {
@@ -196,6 +220,17 @@ func (c *TypeChecker) FindAllSymbol(prog *ProgramNode) exception.IException {
 
 			sym := NewTypeSymbol(v.Name.Value, false)
 			sym.Generics = v.Generics
+			if c.Context.Find(sym) {
+				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
+			}
+
+			c.Context.Add(sym)
+		case *RestDeclNode:
+			if v.Name == nil {
+				return exception.NewTypeException("Rest name is missing", v.Loc)
+			}
+
+			sym := NewRestSymbol(v.Name.Value)
 			if c.Context.Find(sym) {
 				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
 			}
