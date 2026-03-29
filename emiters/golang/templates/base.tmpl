@@ -1,6 +1,356 @@
-
 // Validators
-func IsEmail(value string) bool{
+
+type ValidatorError struct {
+    message string
+}
+
+func (e *ValidatorError) Error() string {
+    return e.message
+}
+
+func NewValidatorError(msg string) *ValidatorError {
+    return &ValidatorError{message: msg}
+}
+
+func Is(value any, constraint any, msg string) error {
+    if value == constraint {
+        return nil
+    }
+    return NewValidatorError(msg)
+}
+
+func Min(value any, min float64, msg string) error {
+    n, ok := toFloat64(value)
+    if !ok || n < min {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func Max(value any, max float64, msg string) error {
+    n, ok := toFloat64(value)
+    if !ok || n > max {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func Length(value any, length int, msg string) error {
+    s, ok := value.(string)
+    if !ok || runeCount(s) != length {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func MinLength(value any, min int, msg string) error {
+    s, ok := value.(string)
+    if !ok || runeCount(s) < min {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func MaxLength(value any, max int, msg string) error {
+    s, ok := value.(string)
+    if !ok || runeCount(s) > max {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func Range(value any, min float64, max float64, msg string) error {
+    n, ok := toFloat64(value)
+    if !ok || n < min || n > max {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func Matches(value string, pattern string, msg string) error {
+    // Minimal runtime: treat pattern as substring token.
+    if !contains(value, pattern) {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func Contains(value string, sub string, msg string) error {
+    if !contains(value, sub) {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func StartsWith(value string, prefix string, msg string) error {
+    if !startsWith(value, prefix) {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func EndsWith(value string, suffix string, msg string) error {
+    if !endsWith(value, suffix) {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func In(value any, values []any, msg string) error {
+    for _, item := range values {
+        if value == item {
+            return nil
+        }
+    }
+    return NewValidatorError(msg)
+}
+
+func IsEmail(value string, msg string) error {
+    at := -1
+    for i, r := range value {
+        if r == '@' {
+            if at != -1 {
+                return NewValidatorError(msg)
+            }
+            at = i
+        }
+    }
+
+    if at <= 0 || at >= len(value)-1 {
+        return NewValidatorError(msg)
+    }
+
+    domain := value[at+1:]
+    if !contains(domain, ".") {
+        return NewValidatorError(msg)
+    }
+
+    return nil
+}
+
+func IsNumber(value any, msg string) error {
+    _, ok := toFloat64(value)
+    if !ok {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func IsURL(value string, msg string) error {
+    if startsWith(value, "http://") || startsWith(value, "https://") {
+        return nil
+    }
+    return NewValidatorError(msg)
+}
+
+func IsUUID(value string, msg string) error {
+    if len(value) != 36 {
+        return NewValidatorError(msg)
+    }
+
+    for i, r := range value {
+        if i == 8 || i == 13 || i == 18 || i == 23 {
+            if r != '-' {
+                return NewValidatorError(msg)
+            }
+            continue
+        }
+
+        if !isHexChar(r) {
+            return NewValidatorError(msg)
+        }
+    }
+
+    return nil
+}
+
+func IsDate(value string, msg string) error {
+    if len(value) != 10 {
+        return NewValidatorError(msg)
+    }
+
+    if value[4] != '-' || value[7] != '-' {
+        return NewValidatorError(msg)
+    }
+
+    if !isAllDigits(value[0:4]) || !isAllDigits(value[5:7]) || !isAllDigits(value[8:10]) {
+        return NewValidatorError(msg)
+    }
+
+    return nil
+}
+
+func IsDateTime(value string, msg string) error {
+    if len(value) < 19 {
+        return NewValidatorError(msg)
+    }
+
+    datePart := value[0:10]
+    if err := IsDate(datePart, msg); err != nil {
+        return err
+    }
+
+    sep := value[10]
+    if sep != 'T' && sep != ' ' {
+        return NewValidatorError(msg)
+    }
+
+    timePart := value[11:19]
+    if timePart[2] != ':' || timePart[5] != ':' {
+        return NewValidatorError(msg)
+    }
+
+    if !isAllDigits(timePart[0:2]) || !isAllDigits(timePart[3:5]) || !isAllDigits(timePart[6:8]) {
+        return NewValidatorError(msg)
+    }
+
+    return nil
+}
+
+func IsAlpha(value string, msg string) error {
+    if len(value) == 0 {
+        return NewValidatorError(msg)
+    }
+
+    for _, r := range value {
+        if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
+            return NewValidatorError(msg)
+        }
+    }
+
+    return nil
+}
+
+func IsAlnum(value string, msg string) error {
+    if len(value) == 0 {
+        return NewValidatorError(msg)
+    }
+
+    for _, r := range value {
+        isLetter := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+        isDigit := r >= '0' && r <= '9'
+        if !isLetter && !isDigit {
+            return NewValidatorError(msg)
+        }
+    }
+
+    return nil
+}
+
+func NotNull(value any, msg string) error {
+    if value == nil {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func IsBool(value any, msg string) error {
+    if _, ok := value.(bool); !ok {
+        return NewValidatorError(msg)
+    }
+    return nil
+}
+
+func IsModel(_ any, _ string) error {
+    // Model validation is emitted directly via <Model>Validate(...)
+    return nil
+}
+
+func toFloat64(value any) (float64, bool) {
+    switch v := value.(type) {
+    case int:
+        return float64(v), true
+    case int8:
+        return float64(v), true
+    case int16:
+        return float64(v), true
+    case int32:
+        return float64(v), true
+    case int64:
+        return float64(v), true
+    case uint:
+        return float64(v), true
+    case uint8:
+        return float64(v), true
+    case uint16:
+        return float64(v), true
+    case uint32:
+        return float64(v), true
+    case uint64:
+        return float64(v), true
+    case float32:
+        return float64(v), true
+    case float64:
+        return v, true
+    default:
+        return 0, false
+    }
+}
+
+func runeCount(s string) int {
+    count := 0
+    for range s {
+        count++
+    }
+    return count
+}
+
+func contains(s string, sub string) bool {
+    if len(sub) == 0 {
+        return true
+    }
+
+    if len(sub) > len(s) {
+        return false
+    }
+
+    for i := 0; i <= len(s)-len(sub); i++ {
+        if s[i:i+len(sub)] == sub {
+            return true
+        }
+    }
+
+    return false
+}
+
+func startsWith(s string, prefix string) bool {
+    if len(prefix) > len(s) {
+        return false
+    }
+    return s[0:len(prefix)] == prefix
+}
+
+func endsWith(s string, suffix string) bool {
+    if len(suffix) > len(s) {
+        return false
+    }
+    return s[len(s)-len(suffix):] == suffix
+}
+
+func isHexChar(r rune) bool {
+    if r >= '0' && r <= '9' {
+        return true
+    }
+    if r >= 'a' && r <= 'f' {
+        return true
+    }
+    if r >= 'A' && r <= 'F' {
+        return true
+    }
+    return false
+}
+
+func isAllDigits(s string) bool {
+    if len(s) == 0 {
+        return false
+    }
+
+    for _, r := range s {
+        if r < '0' || r > '9' {
+            return false
+        }
+    }
+
     return true
 }
 

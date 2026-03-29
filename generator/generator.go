@@ -1,15 +1,36 @@
 package generator
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/parser"
 )
 
-var validatorAnnotations = []string{
-	"IsEmail",
+var validatorAnnotations = map[string]struct{}{
+	"Is":         {},
+	"Min":        {},
+	"Max":        {},
+	"Length":     {},
+	"MinLength":  {},
+	"MaxLength":  {},
+	"Range":      {},
+	"Matches":    {},
+	"Contains":   {},
+	"StartsWith": {},
+	"EndsWith":   {},
+	"In":         {},
+	"IsEmail":    {},
+	"IsNumber":   {},
+	"IsURL":      {},
+	"IsUUID":     {},
+	"IsDate":     {},
+	"IsDateTime": {},
+	"IsAlpha":    {},
+	"IsAlnum":    {},
+	"NotNull":    {},
+	"IsBool":     {},
+	"IsModel":    {},
 }
 
 type IRGenerator struct {
@@ -153,7 +174,7 @@ func (g *IRGenerator) extractValidator(node *parser.ModelFieldDeclNode) ([]*Fiel
 	validators := []*FieldValidator{}
 
 	for _, anno := range node.Annotations {
-		if slices.Contains(validatorAnnotations, anno.Name.Value) {
+		if _, ok := validatorAnnotations[anno.Name.Value]; ok {
 			args := []*ValueIR{}
 			for _, arg := range anno.Args {
 				value := g.valueToIR(arg)
@@ -162,6 +183,7 @@ func (g *IRGenerator) extractValidator(node *parser.ModelFieldDeclNode) ([]*Fiel
 
 			validators = append(validators, &FieldValidator{
 				Name: anno.Name.Value,
+				Args: args,
 			})
 		}
 	}

@@ -13,3 +13,6 @@ var CreateConstructorTemplate string
 
 //go:embed templates/base.tmpl
 var BaseTemplate string
+
+//go:embed templates/validator.tmpl
+var ValidatorTemplate string

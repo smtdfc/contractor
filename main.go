@@ -14,16 +14,19 @@ func main() {
 
 	code := `
 		@CreateConstructor
-		model Address{
+		model Address<T>{
 			province?: String
 			district?: String
-			village?: String
+			village?: T
 		}
 
 		@CreateConstructor
 		model User<T,U,K> {
+			@IsEmail("error")
 			name: String
-			address: Address
+
+			@IsModel("hello")
+			address: Address<T>
 			data: T
 		}
 	`

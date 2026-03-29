@@ -41,7 +41,7 @@ func (e *GoEmitter) EmitGenericType(ir *generator.TypeIR) (string, exception.IEx
 	return ir.Name, nil
 }
 
-func (e *GoEmitter) EmitModelType(ir *generator.TypeIR) (string, exception.IException) {
+func (e *GoEmitter) EmitModelType(ir *generator.TypeIR, isOptional bool) (string, exception.IException) {
 	genericTypes := []string{}
 
 	for _, generic := range ir.Generics {
@@ -54,13 +54,18 @@ func (e *GoEmitter) EmitModelType(ir *generator.TypeIR) (string, exception.IExce
 	}
 
 	if len(genericTypes) > 0 {
-		return fmt.Sprintf(`*%s[%s]`, ir.Name, strings.Join(genericTypes, ",")), nil
+		base := fmt.Sprintf(`%s[%s]`, ir.Name, strings.Join(genericTypes, ","))
+		return fmt.Sprintf(`*%s`, base), nil
 	}
 
+	_ = isOptional
 	return fmt.Sprintf(`*%s`, ir.Name), nil
 }
 
 func (e *GoEmitter) EmitType(ir *generator.TypeIR, isOptional bool) (string, exception.IException) {
+	if ir == nil {
+		return "any", nil
+	}
 
 	if ir.Kind == generator.TypeKindBuiltin {
 		t, err := e.EmitBuildInType(ir)
@@ -72,11 +77,16 @@ func (e *GoEmitter) EmitType(ir *generator.TypeIR, isOptional bool) (string, exc
 	}
 
 	if ir.Kind == generator.TypeKindModel {
-		return e.EmitModelType(ir)
+		return e.EmitModelType(ir, isOptional)
 	}
 
 	if ir.Kind == generator.TypeKindGeneric {
-		return e.EmitGenericType(ir)
+		t, err := e.EmitGenericType(ir)
+		if isOptional {
+			t = fmt.Sprintf("*%s", t)
+		}
+
+		return t, err
 	}
 
 	return "any", nil
@@ -131,7 +141,7 @@ func (e *GoEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IExcepti
 		return fmt.Sprintf(`"%s"`, ir.Value.(string)), nil
 	}
 
-	if ir.Kind == "Bool" {
+	if ir.Kind == "Boolean" {
 		return ir.Value.(string), nil
 	}
 
@@ -146,7 +156,7 @@ func (e *GoEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IExcepti
 			elements = append(elements, value)
 		}
 
-		return fmt.Sprintf(`[%s]`, strings.Join(elements, ",")), nil
+		return fmt.Sprintf(`[]any{%s}`, strings.Join(elements, ",")), nil
 	}
 
 	return "", nil
@@ -216,6 +226,13 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 
 	sb.WriteString(tpl.String())
 
+	validatorCode, err := e.EmitValidator(ir)
+	if err != nil {
+		return "", exception.NewEmitException("Error when emit go code", ir.Span.ToLocation())
+	}
+
+	sb.WriteString(validatorCode)
+
 	if ir.IsCreateConstructor {
 		constructorCode, err := e.EmitCreateConstructor(ir)
 		if err != nil {
@@ -227,6 +244,54 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 	}
 
 	return sb.String(), nil
+}
+
+func (e *GoEmitter) EmitValidator(ir *generator.ModelIR) (string, exception.IException) {
+	var sb strings.Builder
+
+	for _, field := range ir.Fields {
+		for _, validator := range field.Validators {
+			validatorCode, err := e.EmitFieldValidator(validator, field.Name, field.Type.Kind == generator.TypeKindModel, field.IsOptional, field.Type)
+			if err != nil {
+				return "", err
+			}
+			sb.WriteString(validatorCode + "\n")
+		}
+	}
+
+	data := map[string]string{
+		"Name":       ir.Name,
+		"Validators": sb.String(),
+		"TypeParams": e.EmitTypeParams(ir.TypeParams, true),
+		"Generics":   e.EmitTypeParams(ir.TypeParams, false),
+	}
+
+	tmpl, _ := template.New("test").Parse(ValidatorTemplate)
+
+	var tpl bytes.Buffer
+	_ = tmpl.Execute(&tpl, data)
+
+	return tpl.String(), nil
+}
+
+func (e *GoEmitter) EmitFieldValidator(ir *generator.FieldValidator, name string, isModelType bool, isOptional bool, typeDef *generator.TypeIR) (string, exception.IException) {
+
+	args := []string{}
+	for _, arg := range ir.Args {
+		argValue, err := e.EmitValue(arg)
+		if err != nil {
+			return "", err
+		}
+		args = append(args, argValue)
+	}
+
+	if ir.Name == "IsModel" && isModelType {
+		_ = isOptional
+		modelValue := fmt.Sprintf("instance.%s", helpers.ToPascalCase(name))
+		return fmt.Sprintf(`if err := %sValidate(%s); err != nil { return NewValidatorError(%s) }`, typeDef.Name, modelValue, args[0]), nil
+	}
+
+	return fmt.Sprintf(`if err := %s(instance.%s,%s); err != nil { return err }`, ir.Name, helpers.ToPascalCase(name), strings.Join(args, ",")), nil
 }
 
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {

@@ -561,6 +561,11 @@ func NewTypeChecker() *TypeChecker {
 	isBool.Args["message"] = newTypeRef("String")
 	ctx.Add(isBool)
 
+	isModel := NewAnnotationSymbol("IsModel", true)
+	isModel.ArgOrder = append(isModel.ArgOrder, "message")
+	isModel.Args["message"] = newTypeRef("String")
+	ctx.Add(isModel)
+
 	i := &TypeChecker{
 		Context:  ctx,
 		Warnings: make([]TypeWarning, 0),
