@@ -7,12 +7,15 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/smtdfc/contractor/emiters"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/helpers"
 )
 
 type KotlinEmitter struct{}
+
+var _ emiters.ProgramEmitter = (*KotlinEmitter)(nil)
 
 func NewKotlinEmitter() *KotlinEmitter {
 	return &KotlinEmitter{}
