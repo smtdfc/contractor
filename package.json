@@ -1,0 +1,12 @@
+{
+  "name": "contractor",
+  "version": "1.0.0",
+  "description": "**Contractor** is a specialized Interface Definition Language (IDL) designed to enforce data integrity across distributed systems. It provides a robust mechanism to define cross-platform data contracts, generating validated and idiomatic code for TypeScript and Go, eliminating the risks of manual synchronization.",
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

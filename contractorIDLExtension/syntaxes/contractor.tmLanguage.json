@@ -1,0 +1,248 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ContractorIDL",
+  "scopeName": "source.contract",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#annotations"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#genericDeclarations"
+    },
+    {
+      "include": "#genericArguments"
+    },
+    {
+      "include": "#properties"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#booleansAndNull"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.contractor",
+          "begin": "//",
+          "end": "$"
+        },
+        {
+          "name": "comment.block.contractor",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.contractor",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.contractor",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "punctuation.definition.annotation.contractor",
+          "match": "@"
+        },
+        {
+          "name": "entity.name.annotation.contractor",
+          "match": "(?<=@)[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "keyword.declaration.contractor",
+          "match": "\\b(model|rest)\\b"
+        },
+        {
+          "name": "entity.name.type.contractor",
+          "match": "(?<=\\bmodel\\s+)[A-Za-z_][A-Za-z0-9_]*"
+        },
+        {
+          "name": "entity.name.type.contractor",
+          "match": "(?<=\\brest\\s+)[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "genericDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.generic.declaration.contractor",
+          "begin": "(?<=\\bmodel\\s+[A-Za-z_][A-Za-z0-9_]*\\s*)<",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.generic.begin.contractor"
+            }
+          },
+          "end": ">",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.generic.end.contractor"
+            }
+          },
+          "patterns": [
+            {
+              "name": "entity.name.type.parameter.contractor",
+              "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+            },
+            {
+              "name": "punctuation.separator.comma.contractor",
+              "match": ","
+            }
+          ]
+        }
+      ]
+    },
+    "genericArguments": {
+      "patterns": [
+        {
+          "name": "meta.generic.arguments.contractor",
+          "begin": "(?<=\\b[A-Za-z_][A-Za-z0-9_]*\\s*)<",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.generic.begin.contractor"
+            }
+          },
+          "end": ">",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.generic.end.contractor"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#genericArguments"
+            },
+            {
+              "name": "storage.type.builtin.contractor",
+              "match": "\\b(String|Int|Float|Bool|Any|Null|Array)\\b"
+            },
+            {
+              "name": "entity.name.type.contractor",
+              "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+            },
+            {
+              "name": "entity.name.type.parameter.contractor",
+              "match": "\\b[a-zA-Z_][A-Za-z0-9_]*\\b"
+            },
+            {
+              "name": "punctuation.separator.comma.contractor",
+              "match": ","
+            }
+          ]
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "name": "variable.other.property.contractor",
+          "match": "\\b(path|method|requestBody|responseBody|queries)\\b(?=\\s*:)"
+        },
+        {
+          "name": "variable.other.field.contractor",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b(?=\\??\\s*:)"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.builtin.contractor",
+          "match": "\\b(String|Int|Float|Bool|Any|Null|Array)\\b"
+        },
+        {
+          "name": "entity.name.type.contractor",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "booleansAndNull": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.contractor",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.null.contractor",
+          "match": "\\bnull\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.contractor",
+          "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.key-value.contractor",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.comma.contractor",
+          "match": ","
+        },
+        {
+          "name": "keyword.operator.optional.contractor",
+          "match": "\\?"
+        },
+        {
+          "name": "punctuation.section.block.begin.contractor",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.contractor",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.group.begin.contractor",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.group.end.contractor",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.contractor",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.contractor",
+          "match": "\\]"
+        }
+      ]
+    }
+  }
+}
