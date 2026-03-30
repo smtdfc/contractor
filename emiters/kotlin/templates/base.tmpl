@@ -1,0 +1,21 @@
+import java.net.URI
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.UUID
+
+object GeneratedContract {
+
+{{.Runtime}}
+
+{{.Models}}
+{{- if .HasRests }}
+
+  data class RestInfo<Req, Res>(
+    val path: String,
+    val method: String,
+    val queries: List<String>,
+  )
+
+{{.Rests}}
+{{- end }}
+}

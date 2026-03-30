@@ -1,0 +1,8 @@
+  typealias {{.RestName}}RequestBody = {{.RequestType}}
+  typealias {{.RestName}}ResponseBody = {{.ResponseType}}
+
+  val {{.RestName}}: RestInfo<{{.RestName}}RequestBody, {{.RestName}}ResponseBody> = RestInfo(
+    path = {{.Path}},
+    method = {{.Method}},
+    queries = listOf({{.Queries}}),
+  )

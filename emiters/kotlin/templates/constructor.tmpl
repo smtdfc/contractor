@@ -1,0 +1,5 @@
+    constructor({{.Params}}) {
+{{- range $index, $line := .Assignments }}
+      {{ $line }}
+{{- end }}
+    }
