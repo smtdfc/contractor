@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/smtdfc/contractor/emiters"
+	"github.com/smtdfc/contractor/emitters"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/helpers"
@@ -15,7 +15,7 @@ import (
 
 type TypescriptEmitter struct{}
 
-var _ emiters.ProgramEmitter = (*TypescriptEmitter)(nil)
+var _ emitters.ProgramEmitter = (*TypescriptEmitter)(nil)
 
 func NewTypescriptEmitter() *TypescriptEmitter {
 	return &TypescriptEmitter{}
@@ -133,7 +133,7 @@ func (e *TypescriptEmitter) EmitModelField(ir *generator.ModelField) (string, ex
 		return fmt.Sprintf("%s?: %s;", ir.Name, typeStr), nil
 	}
 
-	return fmt.Sprintf("%s: %s;", ir.Name, typeStr), nil
+	return fmt.Sprintf("// @ts-ignore: generated field may be initialized outside constructor\n%s: %s;", ir.Name, typeStr), nil
 }
 
 func (e *TypescriptEmitter) EmitConstructor(ir *generator.ModelIR) (string, exception.IException) {

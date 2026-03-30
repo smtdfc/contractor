@@ -1,4 +1,4 @@
-package java
+package csharp
 
 import (
 	"bytes"
@@ -7,21 +7,21 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/smtdfc/contractor/emiters"
+	"github.com/smtdfc/contractor/emitters"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/helpers"
 )
 
-type JavaEmitter struct{}
+type CSharpEmitter struct{}
 
-var _ emiters.ProgramEmitter = (*JavaEmitter)(nil)
+var _ emitters.ProgramEmitter = (*CSharpEmitter)(nil)
 
-func NewJavaEmitter() *JavaEmitter {
-	return &JavaEmitter{}
+func NewCSharpEmitter() *CSharpEmitter {
+	return &CSharpEmitter{}
 }
 
-func (e *JavaEmitter) emitTypeParams(params []string) string {
+func (e *CSharpEmitter) emitTypeParams(params []string) string {
 	if len(params) == 0 {
 		return ""
 	}
@@ -29,68 +29,81 @@ func (e *JavaEmitter) emitTypeParams(params []string) string {
 	return fmt.Sprintf("<%s>", strings.Join(params, ", "))
 }
 
-func (e *JavaEmitter) EmitBuiltinType(ir *generator.TypeIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitBuiltinType(ir *generator.TypeIR) (string, exception.IException) {
 	switch ir.Name {
 	case "Int":
-		return "Integer", nil
+		return "int", nil
 	case "Float":
-		return "Double", nil
+		return "double", nil
 	case "Bool":
-		return "Boolean", nil
+		return "bool", nil
 	case "Any":
-		return "Object", nil
+		return "object", nil
 	case "String":
-		return "String", nil
+		return "string", nil
 	case "Null":
-		return "Object", nil
+		return "object?", nil
 	case "Array":
 		if len(ir.Generics) == 0 {
-			return "List<Object>", nil
+			return "List<object?>", nil
 		}
 
-		genericType, err := e.EmitType(ir.Generics[0])
+		genericType, err := e.EmitType(ir.Generics[0], false)
 		if err != nil {
 			return "", err
 		}
 
 		return fmt.Sprintf("List<%s>", genericType), nil
 	default:
-		return "Object", nil
+		return "object", nil
 	}
 }
 
-func (e *JavaEmitter) EmitType(ir *generator.TypeIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitType(ir *generator.TypeIR, isOptional bool) (string, exception.IException) {
 	if ir == nil {
-		return "Object", nil
+		if isOptional {
+			return "object?", nil
+		}
+		return "object", nil
 	}
+
+	var typeName string
+	var err exception.IException
 
 	switch ir.Kind {
 	case generator.TypeKindBuiltin:
-		return e.EmitBuiltinType(ir)
+		typeName, err = e.EmitBuiltinType(ir)
+		if err != nil {
+			return "", err
+		}
 	case generator.TypeKindModel:
 		if len(ir.Generics) == 0 {
-			return ir.Name, nil
-		}
-
-		genericTypes := make([]string, 0, len(ir.Generics))
-		for _, item := range ir.Generics {
-			t, err := e.EmitType(item)
-			if err != nil {
-				return "", err
+			typeName = ir.Name
+		} else {
+			genericTypes := make([]string, 0, len(ir.Generics))
+			for _, item := range ir.Generics {
+				t, e2 := e.EmitType(item, false)
+				if e2 != nil {
+					return "", e2
+				}
+				genericTypes = append(genericTypes, t)
 			}
-
-			genericTypes = append(genericTypes, t)
+			typeName = fmt.Sprintf("%s<%s>", ir.Name, strings.Join(genericTypes, ", "))
 		}
-
-		return fmt.Sprintf("%s<%s>", ir.Name, strings.Join(genericTypes, ", ")), nil
 	case generator.TypeKindGeneric:
-		return ir.Name, nil
+		typeName = ir.Name
 	default:
-		return "Object", nil
+		typeName = "object"
 	}
+
+	if isOptional && !strings.HasSuffix(typeName, "?") {
+		typeName += "?"
+	}
+
+	return typeName, nil
 }
 
-func (e *JavaEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IException) {
 	if ir == nil {
 		return "null", nil
 	}
@@ -106,7 +119,7 @@ func (e *JavaEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IExcep
 	case "Array":
 		arr, ok := ir.Value.([]*generator.ValueIR)
 		if !ok {
-			return "java.util.Arrays.asList()", nil
+			return "Array.Empty<object?>()", nil
 		}
 
 		items := make([]string, 0, len(arr))
@@ -115,40 +128,40 @@ func (e *JavaEmitter) EmitValue(ir *generator.ValueIR) (string, exception.IExcep
 			if err != nil {
 				return "", err
 			}
-
 			items = append(items, value)
 		}
-
-		return fmt.Sprintf("java.util.Arrays.asList(%s)", strings.Join(items, ", ")), nil
+		return fmt.Sprintf("new object?[] { %s }", strings.Join(items, ", ")), nil
 	default:
 		return "null", nil
 	}
 }
 
-func (e *JavaEmitter) EmitModelField(ir *generator.ModelField) (string, exception.IException) {
-	typeStr, err := e.EmitType(ir.Type)
+func (e *CSharpEmitter) EmitModelField(ir *generator.ModelField) (string, exception.IException) {
+	typeStr, err := e.EmitType(ir.Type, ir.IsOptional)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("public %s %s;", typeStr, ir.Name), nil
+	return fmt.Sprintf("public %s %s { get; set; }", typeStr, helpers.ToPascalCase(ir.Name)), nil
 }
 
-func (e *JavaEmitter) EmitConstructor(ir *generator.ModelIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitConstructor(ir *generator.ModelIR) (string, exception.IException) {
 	params := make([]string, 0, len(ir.Fields))
 	assignments := make([]string, 0, len(ir.Fields))
 
 	for _, field := range ir.Fields {
-		typeStr, err := e.EmitType(field.Type)
+		typeStr, err := e.EmitType(field.Type, field.IsOptional)
 		if err != nil {
 			return "", err
 		}
 
-		params = append(params, fmt.Sprintf("%s %s", typeStr, field.Name))
-		assignments = append(assignments, fmt.Sprintf("this.%s = %s;", field.Name, field.Name))
+		paramName := helpers.ToCamelCase(field.Name)
+		fieldName := helpers.ToPascalCase(field.Name)
+		params = append(params, fmt.Sprintf("%s %s", typeStr, paramName))
+		assignments = append(assignments, fmt.Sprintf("%s = %s;", fieldName, paramName))
 	}
 
-	tmpl, _ := template.New("java-constructor").Parse(ConstructorTemplate)
+	tmpl, _ := template.New("cs-constructor").Parse(ConstructorTemplate)
 	data := map[string]any{
 		"Name":        ir.Name,
 		"Params":      strings.Join(params, ", "),
@@ -158,22 +171,22 @@ func (e *JavaEmitter) EmitConstructor(ir *generator.ModelIR) (string, exception.
 	var tpl bytes.Buffer
 	err := tmpl.Execute(&tpl, data)
 	if err != nil {
-		return "", exception.NewEmitException("Error when emit java constructor", ir.Span.ToLocation())
+		return "", exception.NewEmitException("Error when emit csharp constructor", ir.Span.ToLocation())
 	}
 
 	return tpl.String(), nil
 }
 
-func (e *JavaEmitter) EmitFieldValidator(v *generator.FieldValidator, field *generator.ModelField) (string, exception.IException) {
-	fieldRef := fmt.Sprintf("this.%s", field.Name)
+func (e *CSharpEmitter) EmitFieldValidator(v *generator.FieldValidator, field *generator.ModelField) (string, exception.IException) {
+	fieldName := helpers.ToPascalCase(field.Name)
+	fieldRef := fieldName
 
 	if v.Name == "IsModel" && field.Type != nil && field.Type.Kind == generator.TypeKindModel {
-		validateCall := fmt.Sprintf("%s.validate();", fieldRef)
+		line := fmt.Sprintf("%s?.Validate();", fieldRef)
 		if field.IsOptional {
-			return fmt.Sprintf("if (%s != null) { %s }", fieldRef, validateCall), nil
+			return line, nil
 		}
-
-		return validateCall, nil
+		return fmt.Sprintf("%s.Validate();", fieldRef), nil
 	}
 
 	args := make([]string, 0, len(v.Args))
@@ -182,7 +195,6 @@ func (e *JavaEmitter) EmitFieldValidator(v *generator.FieldValidator, field *gen
 		if err != nil {
 			return "", err
 		}
-
 		args = append(args, value)
 	}
 
@@ -193,13 +205,13 @@ func (e *JavaEmitter) EmitFieldValidator(v *generator.FieldValidator, field *gen
 
 	line := fmt.Sprintf("Validators.%s(%s);", v.Name, callArgs)
 	if field.IsOptional && v.Name != "NotNull" {
-		return fmt.Sprintf("if (%s != null) { %s }", fieldRef, line), nil
+		return fmt.Sprintf("if (%s is not null) { %s }", fieldRef, line), nil
 	}
 
 	return line, nil
 }
 
-func (e *JavaEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, exception.IException) {
 	lines := make([]string, 0)
 	for _, field := range ir.Fields {
 		for _, validator := range field.Validators {
@@ -211,21 +223,17 @@ func (e *JavaEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, except
 		}
 	}
 
-	tmpl, _ := template.New("java-validator-method").Parse(ValidatorMethodTemplate)
-	data := map[string]any{
-		"Lines": lines,
-	}
-
+	tmpl, _ := template.New("cs-validator").Parse(ValidatorMethodTemplate)
+	data := map[string]any{"Lines": lines}
 	var tpl bytes.Buffer
 	err := tmpl.Execute(&tpl, data)
 	if err != nil {
-		return "", exception.NewEmitException("Error when emit java validator", ir.Span.ToLocation())
+		return "", exception.NewEmitException("Error when emit csharp validator", ir.Span.ToLocation())
 	}
-
 	return tpl.String(), nil
 }
 
-func (e *JavaEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IException) {
 	fields := make([]string, 0, len(ir.Fields))
 	for _, field := range ir.Fields {
 		line, err := e.EmitModelField(field)
@@ -237,11 +245,11 @@ func (e *JavaEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcep
 
 	constructorCode := ""
 	if ir.IsCreateConstructor {
-		code, err := e.EmitConstructor(ir)
+		c, err := e.EmitConstructor(ir)
 		if err != nil {
 			return "", err
 		}
-		constructorCode = code
+		constructorCode = c
 	}
 
 	validatorCode, err := e.EmitValidatorMethod(ir)
@@ -249,7 +257,7 @@ func (e *JavaEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcep
 		return "", err
 	}
 
-	tmpl, _ := template.New("java-model").Parse(ModelTemplate)
+	tmpl, _ := template.New("cs-model").Parse(ModelTemplate)
 	data := map[string]any{
 		"Name":            ir.Name,
 		"TypeParams":      e.emitTypeParams(ir.TypeParams),
@@ -257,31 +265,29 @@ func (e *JavaEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcep
 		"ConstructorCode": constructorCode,
 		"ValidatorCode":   validatorCode,
 	}
-
 	var tpl bytes.Buffer
 	err_ := tmpl.Execute(&tpl, data)
 	if err_ != nil {
-		return "", exception.NewEmitException("Error when emit java model", ir.Span.ToLocation())
+		return "", exception.NewEmitException("Error when emit csharp model", ir.Span.ToLocation())
 	}
-
 	return tpl.String(), nil
 }
 
-func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IException) {
+func (e *CSharpEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IException) {
 	restName := helpers.ToPascalCase(ir.Name)
 
-	requestType := "Object"
+	requestType := "object"
 	if ir.RequestBodyType != nil {
-		t, err := e.EmitType(ir.RequestBodyType)
+		t, err := e.EmitType(ir.RequestBodyType, false)
 		if err != nil {
 			return "", err
 		}
 		requestType = t
 	}
 
-	responseType := "Object"
+	responseType := "object"
 	if ir.ResponseBodyType != nil {
-		t, err := e.EmitType(ir.ResponseBodyType)
+		t, err := e.EmitType(ir.ResponseBodyType, false)
 		if err != nil {
 			return "", err
 		}
@@ -293,7 +299,7 @@ func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.
 		queries = append(queries, strconv.Quote(q))
 	}
 
-	tmpl, _ := template.New("java-rest").Parse(RestTemplate)
+	tmpl, _ := template.New("cs-rest").Parse(RestTemplate)
 	data := map[string]any{
 		"RestName":     restName,
 		"Path":         strconv.Quote(ir.Path),
@@ -306,13 +312,12 @@ func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.
 	var tpl bytes.Buffer
 	err := tmpl.Execute(&tpl, data)
 	if err != nil {
-		return "", exception.NewEmitException("Error when emit java rest", ir.Span.ToLocation())
+		return "", exception.NewEmitException("Error when emit csharp rest", ir.Span.ToLocation())
 	}
-
 	return tpl.String(), nil
 }
 
-func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
+func (e *CSharpEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var models strings.Builder
 	var rests strings.Builder
 
@@ -334,7 +339,7 @@ func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExceptio
 		rests.WriteString("\n")
 	}
 
-	tmpl, _ := template.New("java-base").Parse(BaseTemplate)
+	tmpl, _ := template.New("cs-base").Parse(BaseTemplate)
 	data := map[string]any{
 		"Runtime":  strings.TrimSpace(RuntimeTemplate),
 		"Models":   strings.TrimSpace(models.String()),
@@ -345,7 +350,7 @@ func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExceptio
 	var tpl bytes.Buffer
 	err := tmpl.Execute(&tpl, data)
 	if err != nil {
-		return "", exception.NewEmitException("Error when emit java output", nil)
+		return "", exception.NewEmitException("Error when emit csharp output", nil)
 	}
 
 	return strings.TrimSpace(tpl.String()) + "\n", nil

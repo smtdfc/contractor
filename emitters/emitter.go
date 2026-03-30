@@ -1,4 +1,4 @@
-package emiters
+package emitters
 
 import (
 	"github.com/smtdfc/contractor/exception"

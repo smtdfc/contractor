@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/smtdfc/contractor/emiters"
+	"github.com/smtdfc/contractor/emitters"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/helpers"
@@ -15,7 +15,7 @@ import (
 
 type GoEmitter struct{}
 
-var _ emiters.ProgramEmitter = (*GoEmitter)(nil)
+var _ emitters.ProgramEmitter = (*GoEmitter)(nil)
 
 func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IException) {
 
@@ -368,9 +368,10 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 	}
 
 	data := map[string]any{
-		"Models":   models.String(),
-		"Rests":    rests.String(),
-		"HasRests": len(ir.Rests) > 0,
+		"PackageName": "generated",
+		"Models":      models.String(),
+		"Rests":       rests.String(),
+		"HasRests":    len(ir.Rests) > 0,
 	}
 
 	tmpl, _ := template.New("test").Parse(BaseTemplate)
