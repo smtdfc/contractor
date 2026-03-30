@@ -267,22 +267,22 @@ func (e *JavaEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcep
 func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IException) {
 	restName := helpers.ToPascalCase(ir.Name)
 
-	requestType := "\"any\""
+	requestType := "Object"
 	if ir.RequestBodyType != nil {
 		t, err := e.EmitType(ir.RequestBodyType)
 		if err != nil {
 			return "", err
 		}
-		requestType = strconv.Quote(t)
+		requestType = t
 	}
 
-	responseType := "\"any\""
+	responseType := "Object"
 	if ir.ResponseBodyType != nil {
 		t, err := e.EmitType(ir.ResponseBodyType)
 		if err != nil {
 			return "", err
 		}
-		responseType = strconv.Quote(t)
+		responseType = t
 	}
 
 	queries := make([]string, 0, len(ir.Queries))

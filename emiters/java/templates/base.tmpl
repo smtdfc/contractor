@@ -10,7 +10,7 @@ public class GeneratedContract {
 {{.Models}}
 {{- if .HasRests }}
 
-  public static class RestInfo {
+  public static class RestInfo<Req, Res> {
     public final String path;
     public final String method;
     public final List<String> queries;

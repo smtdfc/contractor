@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/smtdfc/contractor/emiters/golang"
+	"github.com/smtdfc/contractor/emiters/java"
 	"github.com/smtdfc/contractor/emiters/typescript"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
@@ -80,6 +81,15 @@ func main() {
 
 	tsEmitter := typescript.NewTypescriptEmitter()
 	output, err = tsEmitter.Emit(ir)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	fmt.Println(output)
+
+	javaEmitter := java.NewJavaEmitter()
+	output, err = javaEmitter.Emit(ir)
 	if err != nil {
 		exception.PrintException(err, code)
 		return
