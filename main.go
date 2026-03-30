@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 
+	"github.com/smtdfc/contractor/emiters/csharp"
 	"github.com/smtdfc/contractor/emiters/golang"
 	"github.com/smtdfc/contractor/emiters/java"
+	"github.com/smtdfc/contractor/emiters/kotlin"
 	"github.com/smtdfc/contractor/emiters/typescript"
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
@@ -90,6 +92,24 @@ func main() {
 
 	javaEmitter := java.NewJavaEmitter()
 	output, err = javaEmitter.Emit(ir)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	fmt.Println(output)
+
+	kolinEmitter := kotlin.NewKotlinEmitter()
+	output, err = kolinEmitter.Emit(ir)
+	if err != nil {
+		exception.PrintException(err, code)
+		return
+	}
+
+	fmt.Println(output)
+
+	csharpEmitter := csharp.NewCSharpEmitter()
+	output, err = csharpEmitter.Emit(ir)
 	if err != nil {
 		exception.PrintException(err, code)
 		return

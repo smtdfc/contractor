@@ -1,0 +1,118 @@
+    public sealed class ValidatorException : Exception
+    {
+        public ValidatorException(string message) : base(message) { }
+    }
+
+    public static class Validators
+    {
+        public static void Is(object? value, object? constraint, string msg)
+        {
+            if (!Equals(value, constraint)) throw new ValidatorException(msg);
+        }
+
+        public static void Min(double? value, double min, string msg)
+        {
+            if (!value.HasValue || value.Value < min) throw new ValidatorException(msg);
+        }
+
+        public static void Max(double? value, double max, string msg)
+        {
+            if (!value.HasValue || value.Value > max) throw new ValidatorException(msg);
+        }
+
+        public static void Length(string? value, int length, string msg)
+        {
+            if (value is null || value.Length != length) throw new ValidatorException(msg);
+        }
+
+        public static void MinLength(string? value, int min, string msg)
+        {
+            if (value is null || value.Length < min) throw new ValidatorException(msg);
+        }
+
+        public static void MaxLength(string? value, int max, string msg)
+        {
+            if (value is null || value.Length > max) throw new ValidatorException(msg);
+        }
+
+        public static void Range(double? value, double min, double max, string msg)
+        {
+            if (!value.HasValue || value.Value < min || value.Value > max) throw new ValidatorException(msg);
+        }
+
+        public static void Matches(string? value, string pattern, string msg)
+        {
+            if (value is null || !Regex.IsMatch(value, pattern)) throw new ValidatorException(msg);
+        }
+
+        public static void Contains(string? value, string part, string msg)
+        {
+            if (value is null || !value.Contains(part)) throw new ValidatorException(msg);
+        }
+
+        public static void StartsWith(string? value, string prefix, string msg)
+        {
+            if (value is null || !value.StartsWith(prefix)) throw new ValidatorException(msg);
+        }
+
+        public static void EndsWith(string? value, string suffix, string msg)
+        {
+            if (value is null || !value.EndsWith(suffix)) throw new ValidatorException(msg);
+        }
+
+        public static void In(object? value, IEnumerable<object?> values, string msg)
+        {
+            if (!values.Contains(value)) throw new ValidatorException(msg);
+        }
+
+        public static void IsEmail(string? value, string msg)
+        {
+            if (value is null || !Regex.IsMatch(value, @"^[^\s@]+@[^\s@]+\.[^\s@]+$")) throw new ValidatorException(msg);
+        }
+
+        public static void IsNumber(object? value, string msg)
+        {
+            if (value is not sbyte and byte and short and ushort and int and uint and long and ulong and float and double and decimal)
+                throw new ValidatorException(msg);
+        }
+
+        public static void IsURL(string? value, string msg)
+        {
+            if (value is null || !Uri.TryCreate(value, UriKind.Absolute, out _)) throw new ValidatorException(msg);
+        }
+
+        public static void IsUUID(string? value, string msg)
+        {
+            if (value is null || !Guid.TryParse(value, out _)) throw new ValidatorException(msg);
+        }
+
+        public static void IsDate(string? value, string msg)
+        {
+            if (value is null || !DateOnly.TryParse(value, out _)) throw new ValidatorException(msg);
+        }
+
+        public static void IsDateTime(string? value, string msg)
+        {
+            if (value is null || !DateTime.TryParse(value, out _)) throw new ValidatorException(msg);
+        }
+
+        public static void IsAlpha(string? value, string msg)
+        {
+            if (value is null || !Regex.IsMatch(value, "^[A-Za-z]+$")) throw new ValidatorException(msg);
+        }
+
+        public static void IsAlnum(string? value, string msg)
+        {
+            if (value is null || !Regex.IsMatch(value, "^[A-Za-z0-9]+$")) throw new ValidatorException(msg);
+        }
+
+        public static void NotNull(object? value, string msg)
+        {
+            if (value is null) throw new ValidatorException(msg);
+        }
+
+        public static void IsBool(object? value, string msg)
+        {
+            if (value is not bool) throw new ValidatorException(msg);
+        }
+    }

@@ -1,0 +1,23 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace Contractor.Generated;
+
+public static class GeneratedContract
+{
+{{.Runtime}}
+
+{{.Models}}
+{{- if .HasRests }}
+
+    public sealed record RestInfo<TRequest, TResponse>(
+        string Path,
+        string Method,
+        IReadOnlyList<string> Queries
+    );
+
+{{.Rests}}
+{{- end }}
+}

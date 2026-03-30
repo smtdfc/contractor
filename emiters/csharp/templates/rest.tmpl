@@ -1,0 +1,11 @@
+    public sealed class {{.RestName}}
+    {
+        public sealed class RequestBodyAlias { }
+        public sealed class ResponseBodyAlias { }
+
+        public static readonly RestInfo<{{.RequestType}}, {{.ResponseType}}> Info = new(
+            Path: {{.Path}},
+            Method: {{.Method}},
+            Queries: new[] { {{.Queries}} }
+        );
+    }
