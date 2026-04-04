@@ -1,65 +1,16 @@
-# contractorIDL README
+# Contractor: Type-Safe IDL & Code Generation Toolchain
 
-This is the README for your extension "contractorIDL". After writing up a brief description, we recommend including the following sections.
+**Contractor** is a specialized Interface Definition Language (IDL) designed to enforce data integrity across distributed systems. It provides a robust mechanism to define cross-platform data contracts, generating validated and idiomatic code for TypeScript and Go, eliminating the risks of manual synchronization.
 
-## Features
+### Core Philosophy
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+In microservice architectures, the "contract" between services is often fragile. **Contractor** shifts the focus from manual implementation to **Schema-First development**. By using a single source of truth, it ensures that your data models, validation logic, and transformation rules are always in sync across your entire stack.
 
-For example if there is an image subfolder under your extension project workspace:
+### Key Technical Pillars
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+- **Strict Data Integrity**: Every generated model includes built-in validation logic to ensure incoming data adheres to the defined contract.
+- **Predictable Mapping**: Explicitly handle field transformations (e.g., snake_case to camelCase) through `@Mapping` annotations, making API integration transparent.
+- **Generic-First Design**: Native support for complex generic structures like `Response<T>`, ensuring type safety even in highly abstract data wrappers.
+- **Developer Productivity**: Automates the generation of boilerplate code, including constructors, getters, setters, and mappers.
 
 ---
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
