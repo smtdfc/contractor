@@ -13,4 +13,5 @@ In microservice architectures, the "contract" between services is often fragile.
 - **Generic-First Design**: Native support for complex generic structures like `Response<T>`, ensuring type safety even in highly abstract data wrappers.
 - **Developer Productivity**: Automates the generation of boilerplate code, including constructors, getters, setters, and mappers.
 
+
 ---
