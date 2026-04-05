@@ -344,10 +344,46 @@ func (e *GoEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.IE
 	return tpl.String(), nil
 }
 
+func (e *GoEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IException) {
+	data := map[string]any{
+		"Name":     ir.Name,
+		"Message":  strconv.Quote(ir.Message),
+		"HasCode":  ir.Code != nil,
+		"HasScope": ir.Scope != nil,
+	}
+
+	if ir.Code != nil {
+		data["Code"] = strconv.Quote(*ir.Code)
+	}
+	if ir.Scope != nil {
+		data["Scope"] = strconv.Quote(*ir.Scope)
+	}
+
+	tmpl, _ := template.New("go-error").Parse(ErrorTemplate)
+
+	var tpl bytes.Buffer
+	err := tmpl.Execute(&tpl, data)
+	if err != nil {
+		return "", exception.NewEmitException("Error when emit go code", ir.Span.ToLocation())
+	}
+
+	return tpl.String(), nil
+}
+
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
+	var errors strings.Builder
 	var models strings.Builder
 	var rests strings.Builder
 	var sb strings.Builder
+
+	for _, item := range ir.Errors {
+		code, err := e.EmitError(item)
+		if err != nil {
+			return "", err
+		}
+		errors.WriteString(code)
+		errors.WriteString("\n")
+	}
 
 	for _, model := range ir.Models {
 		code, err := e.EmitModel(model)
@@ -355,6 +391,7 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 			return "", err
 		}
 		models.WriteString(code)
+		models.WriteString("\n")
 	}
 
 	for _, rest := range ir.Rests {
@@ -369,6 +406,7 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 
 	data := map[string]any{
 		"PackageName": "generated",
+		"Errors":      errors.String(),
 		"Models":      models.String(),
 		"Rests":       rests.String(),
 		"HasRests":    len(ir.Rests) > 0,

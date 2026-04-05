@@ -1,0 +1,13 @@
+public sealed class {{.Name}} : Exception
+{
+{{- if .HasCode }}
+    public string? Code { get; } = {{.Code}};
+{{- end }}
+{{- if .HasScope }}
+    public string? Scope { get; } = {{.Scope}};
+{{- end }}
+
+    public {{.Name}}() : base({{.Message}})
+    {
+    }
+}

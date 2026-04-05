@@ -8,6 +8,9 @@ var BaseTemplate string
 //go:embed templates/model.tmpl
 var ModelTemplate string
 
+//go:embed templates/error.tmpl
+var ErrorTemplate string
+
 //go:embed templates/constructor.tmpl
 var ConstructorTemplate string
 

@@ -1,0 +1,13 @@
+export class {{.Name}} extends Error {
+{{- if .HasCode }}
+  readonly code = {{.Code}};
+{{- end }}
+{{- if .HasScope }}
+  readonly scope = {{.Scope}};
+{{- end }}
+
+  constructor() {
+    super({{.Message}});
+    this.name = "{{.Name}}";
+  }
+}

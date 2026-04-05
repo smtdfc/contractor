@@ -1,0 +1,8 @@
+class {{.Name}} : Exception({{.Message}}) {
+{{- if .HasCode }}
+  val code: String? = {{.Code}}
+{{- end }}
+{{- if .HasScope }}
+  val scope: String? = {{.Scope}}
+{{- end }}
+}

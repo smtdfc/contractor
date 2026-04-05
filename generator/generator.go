@@ -53,7 +53,7 @@ func NewIRGenerator() *IRGenerator {
 
 func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exception.IException) {
 	if ast == nil {
-		return &ProgramIR{Models: make([]*ModelIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
+		return &ProgramIR{Errors: make([]*ErrorIR, 0), Models: make([]*ModelIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
 	}
 
 	modelSymbols, err := g.collectModelSymbols(ast)
@@ -61,6 +61,7 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 		return nil, err
 	}
 
+	errors := make([]*ErrorIR, 0)
 	models := make([]*ModelIR, 0)
 	rests := make([]*RestEndpointIR, 0)
 
@@ -73,6 +74,13 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 			}
 
 			models = append(models, modelIR)
+		case *parser.ErrorDeclNode:
+			errorIR, err := g.errorToIR(v)
+			if err != nil {
+				return nil, err
+			}
+
+			errors = append(errors, errorIR)
 		case *parser.RestDeclNode:
 			restIR, err := g.restToIR(v, modelSymbols)
 			if err != nil {
@@ -84,6 +92,7 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 	}
 
 	return &ProgramIR{
+		Errors: errors,
 		Models: models,
 		Rests:  rests,
 	}, nil
@@ -237,6 +246,30 @@ func (g *IRGenerator) restToIR(node *parser.RestDeclNode, modelSymbols map[strin
 	}, nil
 }
 
+func (g *IRGenerator) errorToIR(node *parser.ErrorDeclNode) (*ErrorIR, exception.IException) {
+	if node == nil {
+		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
+		return nil, exception.NewTypeException("Error name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return nil, exception.NewTypeException("Error name is missing", node.GetLocation())
+	}
+
+	message := ""
+	if msg, ok := node.MessageValue.(*parser.StringValueNode); ok && msg != nil {
+		message = msg.Value
+	}
+
+	return &ErrorIR{
+		Span:    toSourceSpan(node.Loc),
+		Name:    node.Name.Value,
+		Code:    stringValueOrNil(node.CodeValue),
+		Message: message,
+		Scope:   stringValueOrNil(node.ScopeValue),
+	}, nil
+}
+
 func (g *IRGenerator) queriesToIR(node parser.ASTValueNode) ([]string, exception.IException) {
 	if node == nil {
 		return make([]string, 0), nil
@@ -339,6 +372,20 @@ func (g *IRGenerator) valueToIR(node parser.ASTValueNode) *ValueIR {
 	default:
 		return &ValueIR{Kind: node.GetKind(), Value: nil}
 	}
+}
+
+func stringValueOrNil(node parser.ASTValueNode) *string {
+	if node == nil {
+		return nil
+	}
+
+	value, ok := node.(*parser.StringValueNode)
+	if !ok || value == nil {
+		return nil
+	}
+
+	result := value.Value
+	return &result
 }
 
 func toSourceSpan(loc *parser.Location) *SourceSpan {

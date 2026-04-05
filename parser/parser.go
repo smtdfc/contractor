@@ -367,6 +367,110 @@ func (p *Parser) ParseRestDecl() (*RestDeclNode, exception.IException) {
 	return node, nil
 }
 
+func (p *Parser) ParseErrorDecl() (*ErrorDeclNode, exception.IException) {
+	if p.Current == nil || !p.Current.Match(TT_IDENT, "error") {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected 'error'", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected 'error'", p.Current.Loc)
+	}
+
+	start := p.Current.Loc
+	node := &ErrorDeclNode{}
+	p.Next()
+
+	if p.Current == nil || !p.Current.MatchType(TT_IDENT) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected identifier for error name", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected identifier for error name", p.Current.Loc)
+	}
+
+	node.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+	p.Next()
+	p.SkipNewLine()
+
+	if p.Current == nil || !p.Current.MatchType(TT_LBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected {", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected {", p.Current.Loc)
+	}
+
+	p.Next()
+	p.SkipNewLine()
+
+	seen := make(map[string]bool)
+
+	for p.Current != nil && !p.Current.MatchType(TT_RBRACE) && !p.Current.MatchType(TT_EOF) {
+		if p.Current.MatchType(TT_NEWLINE) {
+			p.SkipNewLine()
+			continue
+		}
+
+		if !p.Current.MatchType(TT_IDENT) {
+			return nil, exception.NewSyntaxException("Expected property name in error body", p.Current.Loc)
+		}
+
+		key := p.Current.Value
+		if seen[key] {
+			return nil, exception.NewSyntaxException("Duplicate error property '"+key+"'", p.Current.Loc)
+		}
+		seen[key] = true
+		p.Next()
+
+		if p.Current == nil || !p.Current.MatchType(TT_COLON) {
+			if p.Current == nil {
+				return nil, exception.NewSyntaxException("Expected ':' in error property", p.Tokens[len(p.Tokens)-1].Loc)
+			}
+			return nil, exception.NewSyntaxException("Expected ':' in error property", p.Current.Loc)
+		}
+
+		p.Next()
+
+		switch key {
+		case "code":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.CodeValue = v
+		case "message":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.MessageValue = v
+		case "scope":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.ScopeValue = v
+		default:
+			return nil, exception.NewSyntaxException("Unknown error property '"+key+"'", p.Current.Loc)
+		}
+
+		if p.Current != nil && p.Current.MatchType(TT_COMMA) {
+			p.Next()
+		}
+
+		p.SkipNewLine()
+	}
+
+	if p.Current == nil || !p.Current.MatchType(TT_RBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected } at the end of error declaration", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected } at the end of error declaration", p.Current.Loc)
+	}
+
+	node.Loc = NewLocation(start.File, start.Start, p.Current.Loc.End)
+	p.Next()
+
+	return node, nil
+}
+
 func (p *Parser) SkipNewLine() {
 	for p.Current != nil && p.Current.MatchType(TT_NEWLINE) {
 		p.Next()
@@ -597,6 +701,14 @@ func (p *Parser) Parse() (*ProgramNode, exception.IException) {
 
 		case p.Current.Match(TT_IDENT, "rest"):
 			n, err := p.ParseRestDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			program.Body = append(program.Body, n)
+
+		case p.Current.Match(TT_IDENT, "error"):
+			n, err := p.ParseErrorDecl()
 			if err != nil {
 				return nil, err
 			}

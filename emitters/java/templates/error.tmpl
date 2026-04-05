@@ -1,0 +1,12 @@
+  public static class {{.Name}} extends Exception {
+{{- if .HasCode }}
+    public final String code = {{.Code}};
+{{- end }}
+{{- if .HasScope }}
+    public final String scope = {{.Scope}};
+{{- end }}
+
+    public {{.Name}}() {
+      super({{.Message}});
+    }
+  }

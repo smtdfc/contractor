@@ -65,6 +65,22 @@ func (n *RestDeclNode) GetType() string {
 	return "RestDecl"
 }
 
+type ErrorDeclNode struct {
+	Name         *IdentNode
+	CodeValue    ASTValueNode
+	MessageValue ASTValueNode
+	ScopeValue   ASTValueNode
+	Loc          *Location
+}
+
+func (n *ErrorDeclNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *ErrorDeclNode) GetType() string {
+	return "ErrorDecl"
+}
+
 type ModelFieldDeclNode struct {
 	Name        *IdentNode
 	Type        *TypeDeclNode

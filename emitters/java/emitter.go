@@ -312,9 +312,45 @@ func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.
 	return tpl.String(), nil
 }
 
+func (e *JavaEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IException) {
+	data := map[string]any{
+		"Name":     ir.Name,
+		"Message":  strconv.Quote(ir.Message),
+		"HasCode":  ir.Code != nil,
+		"HasScope": ir.Scope != nil,
+	}
+
+	if ir.Code != nil {
+		data["Code"] = strconv.Quote(*ir.Code)
+	}
+	if ir.Scope != nil {
+		data["Scope"] = strconv.Quote(*ir.Scope)
+	}
+
+	tmpl, _ := template.New("java-error").Parse(ErrorTemplate)
+
+	var tpl bytes.Buffer
+	err := tmpl.Execute(&tpl, data)
+	if err != nil {
+		return "", exception.NewEmitException("Error when emit java error", ir.Span.ToLocation())
+	}
+
+	return tpl.String(), nil
+}
+
 func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
+	var errors strings.Builder
 	var models strings.Builder
 	var rests strings.Builder
+
+	for _, item := range ir.Errors {
+		code, err := e.EmitError(item)
+		if err != nil {
+			return "", err
+		}
+		errors.WriteString(code)
+		errors.WriteString("\n")
+	}
 
 	for _, model := range ir.Models {
 		code, err := e.EmitModel(model)
@@ -337,6 +373,7 @@ func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExceptio
 	tmpl, _ := template.New("java-base").Parse(BaseTemplate)
 	data := map[string]any{
 		"Runtime":  strings.TrimSpace(RuntimeTemplate),
+		"Errors":   strings.TrimSpace(errors.String()),
 		"Models":   strings.TrimSpace(models.String()),
 		"Rests":    strings.TrimSpace(rests.String()),
 		"HasRests": rests.Len() > 0,

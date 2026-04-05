@@ -25,6 +25,10 @@ type RestSymbol struct {
 	Name string
 }
 
+type ErrorSymbol struct {
+	Name string
+}
+
 func (s *TypeSymbol) GetName() string {
 	return s.Name
 }
@@ -69,6 +73,26 @@ func (s *RestSymbol) BuiltIn() bool {
 
 func NewRestSymbol(name string) *RestSymbol {
 	return &RestSymbol{Name: name}
+}
+
+func (s *ErrorSymbol) GetName() string {
+	return s.Name
+}
+
+func (s *ErrorSymbol) GetGenerics() []*TypeVarNode {
+	return nil
+}
+
+func (s *ErrorSymbol) GetKind() string {
+	return "error"
+}
+
+func (s *ErrorSymbol) BuiltIn() bool {
+	return false
+}
+
+func NewErrorSymbol(name string) *ErrorSymbol {
+	return &ErrorSymbol{Name: name}
 }
 
 type AnnotationSymbol struct {
@@ -231,6 +255,17 @@ func (c *TypeChecker) FindAllSymbol(prog *ProgramNode) exception.IException {
 			}
 
 			sym := NewRestSymbol(v.Name.Value)
+			if c.Context.Find(sym) {
+				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
+			}
+
+			c.Context.Add(sym)
+		case *ErrorDeclNode:
+			if v.Name == nil {
+				return exception.NewTypeException("Error name is missing", v.Loc)
+			}
+
+			sym := NewErrorSymbol(v.Name.Value)
 			if c.Context.Find(sym) {
 				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
 			}
@@ -429,6 +464,39 @@ func (c *TypeChecker) CheckRestType(node *RestDeclNode) exception.IException {
 	return nil
 }
 
+func (c *TypeChecker) CheckErrorType(node *ErrorDeclNode) exception.IException {
+	if node == nil {
+		fallbackLoc := NewLocation("<unknown>", NewPosition(1, 1), NewPosition(1, 1))
+		return exception.NewTypeException("Error name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return exception.NewTypeException("Error name is missing", node.Loc)
+	}
+
+	if node.MessageValue == nil {
+		return exception.NewTypeException("Error property 'message' is required", node.Loc)
+	}
+
+	if _, ok := node.MessageValue.(*StringValueNode); !ok {
+		return exception.NewTypeException("Error property 'message' must be a string literal", node.MessageValue.GetLocation())
+	}
+
+	if node.CodeValue != nil {
+		if _, ok := node.CodeValue.(*StringValueNode); !ok {
+			return exception.NewTypeException("Error property 'code' must be a string literal", node.CodeValue.GetLocation())
+		}
+	}
+
+	if node.ScopeValue != nil {
+		if _, ok := node.ScopeValue.(*StringValueNode); !ok {
+			return exception.NewTypeException("Error property 'scope' must be a string literal", node.ScopeValue.GetLocation())
+		}
+	}
+
+	return nil
+}
+
 func (c *TypeChecker) Check(ast *ProgramNode) exception.IException {
 	c.Warnings = c.Warnings[:0]
 
@@ -444,6 +512,11 @@ func (c *TypeChecker) Check(ast *ProgramNode) exception.IException {
 			}
 		case *RestDeclNode:
 			err := c.CheckRestType(v)
+			if err != nil {
+				return err
+			}
+		case *ErrorDeclNode:
+			err := c.CheckErrorType(v)
 			if err != nil {
 				return err
 			}

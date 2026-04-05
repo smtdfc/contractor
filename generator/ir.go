@@ -60,12 +60,25 @@ func (m *ModelIR) GetKind() string {
 }
 
 type ProgramIR struct {
+	Errors []*ErrorIR
 	Models []*ModelIR
 	Rests  []*RestEndpointIR
 }
 
 func (p *ProgramIR) GetKind() string {
 	return "program"
+}
+
+type ErrorIR struct {
+	Span    *SourceSpan
+	Name    string
+	Code    *string
+	Message string
+	Scope   *string
+}
+
+func (e *ErrorIR) GetKind() string {
+	return "error"
 }
 
 type ModelField struct {

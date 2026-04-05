@@ -13,5 +13,18 @@ In microservice architectures, the "contract" between services is often fragile.
 - **Generic-First Design**: Native support for complex generic structures like `Response<T>`, ensuring type safety even in highly abstract data wrappers.
 - **Developer Productivity**: Automates the generation of boilerplate code, including constructors, getters, setters, and mappers.
 
+### Error Declarations
+
+Contractor now supports defining reusable error types that generate language-specific exception classes.
+
+```contractor
+error NotFoundError {
+	code: "NOT_FOUND"
+	message: "Resource was not found"
+	scope: "users"
+}
+```
+
+`message` is required. `code` and `scope` are optional metadata fields and are emitted when present.
 
 ---
