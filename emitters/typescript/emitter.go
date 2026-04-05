@@ -360,18 +360,20 @@ func (e *TypescriptEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
 	entries := make([]string, 0)
 
 	for _, item := range items {
-		keys := []string{item.Name}
-		if item.Code != nil {
-			keys = append([]string{*item.Code}, keys...)
+		if item.Code == nil {
+			continue
 		}
 
-		for _, key := range keys {
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			entries = append(entries, fmt.Sprintf("  %s: () => new %s(),", strconv.Quote(key), item.Name))
+		key := *item.Code
+		if _, ok := seen[key]; ok {
+			continue
 		}
+		seen[key] = struct{}{}
+		entries = append(entries, fmt.Sprintf("  %s: () => new %s(),", strconv.Quote(key), item.Name))
+	}
+
+	if len(entries) == 0 {
+		return ""
 	}
 
 	return strings.Join([]string{
@@ -424,11 +426,11 @@ func (e *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 	tmpl, _ := template.New("ts-base").Parse(BaseTemplate)
 
 	data := map[string]any{
-		"Runtime": strings.TrimSpace(RuntimeTemplate),
-		"Errors":  strings.TrimSpace(errors.String()),
+		"Runtime":  strings.TrimSpace(RuntimeTemplate),
+		"Errors":   strings.TrimSpace(errors.String()),
 		"ErrorMap": strings.TrimSpace(e.EmitErrorMap(ir.Errors)),
-		"Models":  strings.TrimSpace(models.String()),
-		"Rests":   strings.TrimSpace(rests.String()),
+		"Models":   strings.TrimSpace(models.String()),
+		"Rests":    strings.TrimSpace(rests.String()),
 	}
 
 	var tpl bytes.Buffer

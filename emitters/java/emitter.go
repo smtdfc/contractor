@@ -347,18 +347,20 @@ func (e *JavaEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
 	entries := make([]string, 0)
 
 	for _, item := range items {
-		keys := []string{item.Name}
-		if item.Code != nil {
-			keys = append([]string{*item.Code}, keys...)
+		if item.Code == nil {
+			continue
 		}
 
-		for _, key := range keys {
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			entries = append(entries, fmt.Sprintf("    ERROR_MAP.put(%s, %s::new);", strconv.Quote(key), item.Name))
+		key := *item.Code
+		if _, ok := seen[key]; ok {
+			continue
 		}
+		seen[key] = struct{}{}
+		entries = append(entries, fmt.Sprintf("    ERROR_MAP.put(%s, %s::new);", strconv.Quote(key), item.Name))
+	}
+
+	if len(entries) == 0 {
+		return ""
 	}
 
 	return strings.Join([]string{
