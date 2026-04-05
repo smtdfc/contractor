@@ -20,9 +20,11 @@ import (
 )
 
 var configPath string
+var generateLang string
 
 func init() {
 	generateCmd.Flags().StringVarP(&configPath, "config", "c", "contractor.json", "Path to contractor config file")
+	generateCmd.Flags().StringVarP(&generateLang, "lang", "l", "", "Generate only for this language (e.g. go, typescript, java, kotlin, csharp)")
 	rootCmd.AddCommand(generateCmd)
 }
 
@@ -33,6 +35,11 @@ var generateCmd = &cobra.Command{
 		cfg, err := config.Load(configPath)
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
+		}
+
+		targets, err := selectTargets(cfg.Targets, generateLang)
+		if err != nil {
+			return err
 		}
 
 		files, err := findContractFiles(cfg.SourceDir, cfg.Extension)
@@ -61,7 +68,7 @@ var generateCmd = &cobra.Command{
 				return err
 			}
 
-			for _, target := range cfg.Targets {
+			for _, target := range targets {
 				emitter, ext, err := resolveEmitter(target.Language)
 				if err != nil {
 					return err
@@ -143,7 +150,7 @@ func parseProgram(filePath string, code string) (*generator.ProgramIR, error) {
 }
 
 func resolveEmitter(language string) (emitters.ProgramEmitter, string, error) {
-	switch strings.ToLower(strings.TrimSpace(language)) {
+	switch normalizeLanguage(language) {
 	case "go", "golang":
 		return golang.NewGoEmitter(), ".go", nil
 	case "typescript", "ts":
@@ -157,6 +164,56 @@ func resolveEmitter(language string) (emitters.ProgramEmitter, string, error) {
 	default:
 		return nil, "", fmt.Errorf("unsupported target language: %s", language)
 	}
+}
+
+func selectTargets(targets []config.Target, requestedLanguage string) ([]config.Target, error) {
+	if strings.TrimSpace(requestedLanguage) == "" {
+		return targets, nil
+	}
+
+	requestedCanonical, err := canonicalLanguage(requestedLanguage)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --lang value: %w", err)
+	}
+
+	filtered := make([]config.Target, 0, len(targets))
+	for _, target := range targets {
+		targetCanonical, err := canonicalLanguage(target.Language)
+		if err != nil {
+			continue
+		}
+
+		if targetCanonical == requestedCanonical {
+			filtered = append(filtered, target)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("no target language %q found in config targets", requestedLanguage)
+	}
+
+	return filtered, nil
+}
+
+func canonicalLanguage(language string) (string, error) {
+	switch normalizeLanguage(language) {
+	case "go", "golang":
+		return "go", nil
+	case "typescript", "ts":
+		return "typescript", nil
+	case "java":
+		return "java", nil
+	case "kotlin", "kt":
+		return "kotlin", nil
+	case "csharp", "cs", "c#":
+		return "csharp", nil
+	default:
+		return "", fmt.Errorf("unsupported language: %s", language)
+	}
+}
+
+func normalizeLanguage(language string) string {
+	return strings.ToLower(strings.TrimSpace(language))
 }
 
 func outputPathForTarget(outDir string, relContractPath string, outExt string) string {
