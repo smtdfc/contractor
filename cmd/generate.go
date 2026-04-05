@@ -162,10 +162,11 @@ func resolveEmitter(language string) (emitters.ProgramEmitter, string, error) {
 func outputPathForTarget(outDir string, relContractPath string, outExt string) string {
 	relDir := filepath.Dir(relContractPath)
 	baseName := strings.TrimSuffix(filepath.Base(relContractPath), filepath.Ext(relContractPath))
+	fileName := "index" + outExt
 
 	if relDir == "." {
-		return filepath.Join(outDir, baseName+outExt)
+		return filepath.Join(outDir, baseName, fileName)
 	}
 
-	return filepath.Join(outDir, relDir, baseName+outExt)
+	return filepath.Join(outDir, relDir, baseName, fileName)
 }

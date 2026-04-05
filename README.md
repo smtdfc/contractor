@@ -27,4 +27,10 @@ error NotFoundError {
 
 `message` is required. `code` and `scope` are optional metadata fields and are emitted when present.
 
+### Generated Output Layout
+
+Each contract file is emitted into its own folder, using `index` as the generated filename.
+
+For example, `a.contract` becomes `gen/typescript/a/index.ts` or `gen/golang/a/index.go`.
+
 ---

@@ -351,6 +351,41 @@ func (e *TypescriptEmitter) EmitError(ir *generator.ErrorIR) (string, exception.
 	return tpl.String(), nil
 }
 
+func (e *TypescriptEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	entries := make([]string, 0)
+
+	for _, item := range items {
+		keys := []string{item.Name}
+		if item.Code != nil {
+			keys = append([]string{*item.Code}, keys...)
+		}
+
+		for _, key := range keys {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			entries = append(entries, fmt.Sprintf("  %s: () => new %s(),", strconv.Quote(key), item.Name))
+		}
+	}
+
+	return strings.Join([]string{
+		"export const ErrorMap: Record<string, () => Error> = {",
+		strings.Join(entries, "\n"),
+		"};",
+		"",
+		"export function createErrorByKey(key: string): Error | null {",
+		"  const factory = ErrorMap[key];",
+		"  return factory ? factory() : null;",
+		"}",
+	}, "\n")
+}
+
 func (e *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var errors strings.Builder
 	var models strings.Builder
@@ -391,6 +426,7 @@ func (e *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 	data := map[string]any{
 		"Runtime": strings.TrimSpace(RuntimeTemplate),
 		"Errors":  strings.TrimSpace(errors.String()),
+		"ErrorMap": strings.TrimSpace(e.EmitErrorMap(ir.Errors)),
 		"Models":  strings.TrimSpace(models.String()),
 		"Rests":   strings.TrimSpace(rests.String()),
 	}

@@ -336,6 +336,38 @@ func (e *KotlinEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IExc
 	return tpl.String(), nil
 }
 
+func (e *KotlinEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	entries := make([]string, 0)
+
+	for _, item := range items {
+		keys := []string{item.Name}
+		if item.Code != nil {
+			keys = append([]string{*item.Code}, keys...)
+		}
+
+		for _, key := range keys {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			entries = append(entries, fmt.Sprintf("    %s to { %s() },", strconv.Quote(key), item.Name))
+		}
+	}
+
+	return strings.Join([]string{
+		"  val errorMap: Map<String, () -> Exception> = mapOf(",
+		strings.Join(entries, "\n"),
+		"  )",
+		"",
+		"  fun createErrorByKey(key: String): Exception? = errorMap[key]?.invoke()",
+	}, "\n")
+}
+
 func (e *KotlinEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var errors strings.Builder
 	var models strings.Builder
@@ -372,6 +404,7 @@ func (e *KotlinEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExcept
 	data := map[string]any{
 		"Runtime":  strings.TrimSpace(RuntimeTemplate),
 		"Errors":   strings.TrimSpace(errors.String()),
+		"ErrorMap": strings.TrimSpace(e.EmitErrorMap(ir.Errors)),
 		"Models":   strings.TrimSpace(models.String()),
 		"Rests":    strings.TrimSpace(rests.String()),
 		"HasRests": rests.Len() > 0,

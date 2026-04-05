@@ -338,6 +338,43 @@ func (e *JavaEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IExcep
 	return tpl.String(), nil
 }
 
+func (e *JavaEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	entries := make([]string, 0)
+
+	for _, item := range items {
+		keys := []string{item.Name}
+		if item.Code != nil {
+			keys = append([]string{*item.Code}, keys...)
+		}
+
+		for _, key := range keys {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			entries = append(entries, fmt.Sprintf("    ERROR_MAP.put(%s, %s::new);", strconv.Quote(key), item.Name))
+		}
+	}
+
+	return strings.Join([]string{
+		"  public static final Map<String, Supplier<? extends Exception>> ERROR_MAP = new HashMap<>();",
+		"",
+		"  static {",
+		strings.Join(entries, "\n"),
+		"  }",
+		"",
+		"  public static Exception createErrorByKey(String key) {",
+		"    Supplier<? extends Exception> factory = ERROR_MAP.get(key);",
+		"    return factory != null ? factory.get() : null;",
+		"  }",
+	}, "\n")
+}
+
 func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var errors strings.Builder
 	var models strings.Builder
@@ -374,6 +411,7 @@ func (e *JavaEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExceptio
 	data := map[string]any{
 		"Runtime":  strings.TrimSpace(RuntimeTemplate),
 		"Errors":   strings.TrimSpace(errors.String()),
+		"ErrorMap": strings.TrimSpace(e.EmitErrorMap(ir.Errors)),
 		"Models":   strings.TrimSpace(models.String()),
 		"Rests":    strings.TrimSpace(rests.String()),
 		"HasRests": rests.Len() > 0,

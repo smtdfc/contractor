@@ -370,6 +370,43 @@ func (e *GoEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IExcepti
 	return tpl.String(), nil
 }
 
+func (e *GoEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	entries := make([]string, 0)
+
+	for _, item := range items {
+		keys := []string{item.Name}
+		if item.Code != nil {
+			keys = append([]string{*item.Code}, keys...)
+		}
+
+		for _, key := range keys {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			entries = append(entries, fmt.Sprintf("    %s: func() error { return New%s() },", strconv.Quote(key), item.Name))
+		}
+	}
+
+	return strings.Join([]string{
+		"var ErrorMap = map[string]func() error{",
+		strings.Join(entries, "\n"),
+		"}",
+		"",
+		"func NewErrorByKey(key string) error {",
+		"    if factory, ok := ErrorMap[key]; ok {",
+		"        return factory()",
+		"    }",
+		"    return nil",
+		"}",
+	}, "\n")
+}
+
 func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var errors strings.Builder
 	var models strings.Builder
@@ -407,6 +444,7 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 	data := map[string]any{
 		"PackageName": "generated",
 		"Errors":      errors.String(),
+		"ErrorMap":    e.EmitErrorMap(ir.Errors),
 		"Models":      models.String(),
 		"Rests":       rests.String(),
 		"HasRests":    len(ir.Rests) > 0,

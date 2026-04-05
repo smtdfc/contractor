@@ -343,6 +343,41 @@ func (e *CSharpEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IExc
 	return tpl.String(), nil
 }
 
+func (e *CSharpEmitter) EmitErrorMap(items []*generator.ErrorIR) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	seen := make(map[string]struct{})
+	entries := make([]string, 0)
+
+	for _, item := range items {
+		keys := []string{item.Name}
+		if item.Code != nil {
+			keys = append([]string{*item.Code}, keys...)
+		}
+
+		for _, key := range keys {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			entries = append(entries, fmt.Sprintf("        [%s] = () => new %s(),", strconv.Quote(key), item.Name))
+		}
+	}
+
+	return strings.Join([]string{
+		"    public static readonly IReadOnlyDictionary<string, Func<Exception>> ErrorMap =",
+		"        new Dictionary<string, Func<Exception>>",
+		"        {",
+		strings.Join(entries, "\n"),
+		"        };",
+		"",
+		"    public static Exception? CreateErrorByKey(string key)",
+		"        => ErrorMap.TryGetValue(key, out var factory) ? factory() : null;",
+	}, "\n")
+}
+
 func (e *CSharpEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var errors strings.Builder
 	var models strings.Builder
@@ -379,6 +414,7 @@ func (e *CSharpEmitter) Emit(ir *generator.ProgramIR) (string, exception.IExcept
 	data := map[string]any{
 		"Runtime":  strings.TrimSpace(RuntimeTemplate),
 		"Errors":   strings.TrimSpace(errors.String()),
+		"ErrorMap": strings.TrimSpace(e.EmitErrorMap(ir.Errors)),
 		"Models":   strings.TrimSpace(models.String()),
 		"Rests":    strings.TrimSpace(rests.String()),
 		"HasRests": rests.Len() > 0,
