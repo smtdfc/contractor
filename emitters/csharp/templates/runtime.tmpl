@@ -3,6 +3,16 @@
         public ValidatorException(string message) : base(message) { }
     }
 
+    public sealed class ValidationException : Exception
+    {
+        public IReadOnlyDictionary<string, List<string>> Errors { get; }
+
+        public ValidationException(string message, Dictionary<string, List<string>> errors) : base(message)
+        {
+            Errors = errors;
+        }
+    }
+
     public static class Validators
     {
         public static void Is(object? value, object? constraint, string msg)

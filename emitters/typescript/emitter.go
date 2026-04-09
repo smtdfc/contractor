@@ -207,7 +207,10 @@ func (e *TypescriptEmitter) EmitFieldValidator(v *generator.FieldValidator, fiel
 }
 
 func (e *TypescriptEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, exception.IException) {
-	lines := make([]string, 0)
+	items := make([]struct {
+		Field string
+		Line  string
+	}, 0)
 
 	for _, field := range ir.Fields {
 		for _, validator := range field.Validators {
@@ -216,14 +219,17 @@ func (e *TypescriptEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, 
 				return "", err
 			}
 
-			lines = append(lines, line)
+			items = append(items, struct {
+				Field string
+				Line  string
+			}{Field: field.Name, Line: line})
 		}
 	}
 
 	tmpl, _ := template.New("ts-validator-method").Parse(ValidatorMethodTemplate)
 
 	data := map[string]any{
-		"Lines": lines,
+		"Items": items,
 	}
 
 	var tpl bytes.Buffer

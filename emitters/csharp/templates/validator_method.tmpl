@@ -1,6 +1,31 @@
         public void Validate()
         {
-{{- range $index, $line := .Lines }}
-            {{ $line }}
+                        var errors = new Dictionary<string, List<string>>();
+
+                        void AddError(string field, string message)
+                        {
+                                if (!errors.TryGetValue(field, out var messages))
+                                {
+                                        messages = new List<string>();
+                                        errors[field] = messages;
+                                }
+
+                                messages.Add(message);
+                        }
+
+{{- range $index, $item := .Items }}
+                        try
+                        {
+                                {{ $item.Line }}
+                        }
+                        catch (ValidatorException ex)
+                        {
+                                AddError("{{ $item.Field }}", ex.Message);
+                        }
 {{- end }}
+
+                        if (errors.Count > 0)
+                        {
+                                throw new ValidationException("validation failed", errors);
+                        }
         }

@@ -4,6 +4,15 @@
     }
   }
 
+  public static class ValidationException extends RuntimeException {
+    public final Map<String, List<String>> errors;
+
+    public ValidationException(String message, Map<String, List<String>> errors) {
+      super(message);
+      this.errors = errors;
+    }
+  }
+
   public static class Validators {
     public static void Is(Object value, Object constraint, String msg) {
       if (!Objects.equals(value, constraint)) {

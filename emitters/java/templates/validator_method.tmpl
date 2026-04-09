@@ -1,5 +1,17 @@
     public void validate() {
-{{- range $index, $line := .Lines }}
-      {{ $line }}
+            Map<String, List<String>> errors = new LinkedHashMap<>();
+            BiConsumer<String, String> addError = (field, message) ->
+                    errors.computeIfAbsent(field, key -> new ArrayList<>()).add(message);
+
+{{- range $index, $item := .Items }}
+            try {
+                {{ $item.Line }}
+            } catch (ValidatorException ex) {
+                addError.accept("{{ $item.Field }}", ex.getMessage());
+            }
 {{- end }}
+
+            if (!errors.isEmpty()) {
+                throw new ValidationException("validation failed", errors);
+            }
     }

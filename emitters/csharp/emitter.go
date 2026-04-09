@@ -212,19 +212,25 @@ func (e *CSharpEmitter) EmitFieldValidator(v *generator.FieldValidator, field *g
 }
 
 func (e *CSharpEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, exception.IException) {
-	lines := make([]string, 0)
+	items := make([]struct {
+		Field string
+		Line  string
+	}, 0)
 	for _, field := range ir.Fields {
 		for _, validator := range field.Validators {
 			line, err := e.EmitFieldValidator(validator, field)
 			if err != nil {
 				return "", err
 			}
-			lines = append(lines, line)
+			items = append(items, struct {
+				Field string
+				Line  string
+			}{Field: field.Name, Line: line})
 		}
 	}
 
 	tmpl, _ := template.New("cs-validator").Parse(ValidatorMethodTemplate)
-	data := map[string]any{"Lines": lines}
+	data := map[string]any{"Items": items}
 	var tpl bytes.Buffer
 	err := tmpl.Execute(&tpl, data)
 	if err != nil {

@@ -200,20 +200,26 @@ func (e *JavaEmitter) EmitFieldValidator(v *generator.FieldValidator, field *gen
 }
 
 func (e *JavaEmitter) EmitValidatorMethod(ir *generator.ModelIR) (string, exception.IException) {
-	lines := make([]string, 0)
+	items := make([]struct {
+		Field string
+		Line  string
+	}, 0)
 	for _, field := range ir.Fields {
 		for _, validator := range field.Validators {
 			line, err := e.EmitFieldValidator(validator, field)
 			if err != nil {
 				return "", err
 			}
-			lines = append(lines, line)
+			items = append(items, struct {
+				Field string
+				Line  string
+			}{Field: field.Name, Line: line})
 		}
 	}
 
 	tmpl, _ := template.New("java-validator-method").Parse(ValidatorMethodTemplate)
 	data := map[string]any{
-		"Lines": lines,
+		"Items": items,
 	}
 
 	var tpl bytes.Buffer

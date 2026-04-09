@@ -1,5 +1,27 @@
   validate(): void {
-{{- range $index, $line := .Lines }}
-    {{ $line }}
+    const errors: Record<string, string[]> = {};
+
+    const addError = (field: string, message: string): void => {
+      if (!errors[field]) {
+        errors[field] = [];
+      }
+
+      errors[field].push(message);
+    };
+
+{{- range $index, $item := .Items }}
+    try {
+      {{ $item.Line }}
+    } catch (error) {
+      if (error instanceof ValidatorError) {
+        addError("{{ $item.Field }}", error.message);
+      } else {
+        throw error;
+      }
+    }
 {{- end }}
+
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError("validation failed", errors);
+    }
   }

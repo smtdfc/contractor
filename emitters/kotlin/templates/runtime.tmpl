@@ -1,5 +1,7 @@
   class ValidatorException(message: String) : RuntimeException(message)
 
+  class ValidationException(message: String, val errors: Map<String, List<String>>) : RuntimeException(message)
+
   object Validators {
     fun Is(value: Any?, constraint: Any?, msg: String) {
       if (value != constraint) throw ValidatorException(msg)
