@@ -70,6 +70,7 @@ type ErrorDeclNode struct {
 	CodeValue    ASTValueNode
 	MessageValue ASTValueNode
 	ScopeValue   ASTValueNode
+	StatusValue  ASTValueNode
 	Loc          *Location
 }
 

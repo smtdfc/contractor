@@ -5,4 +5,7 @@ class {{.Name}} : Exception({{.Message}}) {
 {{- if .HasScope }}
   val scope: String? = {{.Scope}}
 {{- end }}
+{{- if .HasStatus }}
+  val status: String? = {{.Status}}
+{{- end }}
 }

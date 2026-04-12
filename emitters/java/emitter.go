@@ -356,10 +356,11 @@ func (e *JavaEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exception.
 
 func (e *JavaEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IException) {
 	data := map[string]any{
-		"Name":     ir.Name,
-		"Message":  strconv.Quote(ir.Message),
-		"HasCode":  ir.Code != nil,
-		"HasScope": ir.Scope != nil,
+		"Name":      ir.Name,
+		"Message":   strconv.Quote(ir.Message),
+		"HasCode":   ir.Code != nil,
+		"HasScope":  ir.Scope != nil,
+		"HasStatus": ir.Status != nil,
 	}
 
 	if ir.Code != nil {
@@ -367,6 +368,9 @@ func (e *JavaEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IExcep
 	}
 	if ir.Scope != nil {
 		data["Scope"] = strconv.Quote(*ir.Scope)
+	}
+	if ir.Status != nil {
+		data["Status"] = strconv.Quote(*ir.Status)
 	}
 
 	tmpl, _ := template.New("java-error").Parse(ErrorTemplate)

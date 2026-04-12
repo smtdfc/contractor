@@ -268,6 +268,7 @@ func (g *IRGenerator) errorToIR(node *parser.ErrorDeclNode) (*ErrorIR, exception
 		Code:    stringValueOrNil(node.CodeValue),
 		Message: message,
 		Scope:   stringValueOrNil(node.ScopeValue),
+		Status:  stringValueOrNil(node.StatusValue),
 	}, nil
 }
 

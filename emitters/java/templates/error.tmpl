@@ -5,6 +5,9 @@
 {{- if .HasScope }}
     public final String scope = {{.Scope}};
 {{- end }}
+{{- if .HasStatus }}
+    public final String status = {{.Status}};
+{{- end }}
 
     public {{.Name}}() {
       super({{.Message}});

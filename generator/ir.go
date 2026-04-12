@@ -75,6 +75,7 @@ type ErrorIR struct {
 	Code    *string
 	Message string
 	Scope   *string
+	Status  *string
 }
 
 func (e *ErrorIR) GetKind() string {

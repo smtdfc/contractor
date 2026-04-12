@@ -385,10 +385,11 @@ func (e *TypescriptEmitter) EmitRest(ir *generator.RestEndpointIR) (string, exce
 
 func (e *TypescriptEmitter) EmitError(ir *generator.ErrorIR) (string, exception.IException) {
 	data := map[string]any{
-		"Name":     ir.Name,
-		"Message":  strconv.Quote(ir.Message),
-		"HasCode":  ir.Code != nil,
-		"HasScope": ir.Scope != nil,
+		"Name":      ir.Name,
+		"Message":   strconv.Quote(ir.Message),
+		"HasCode":   ir.Code != nil,
+		"HasScope":  ir.Scope != nil,
+		"HasStatus": ir.Status != nil,
 	}
 
 	if ir.Code != nil {
@@ -396,6 +397,9 @@ func (e *TypescriptEmitter) EmitError(ir *generator.ErrorIR) (string, exception.
 	}
 	if ir.Scope != nil {
 		data["Scope"] = strconv.Quote(*ir.Scope)
+	}
+	if ir.Status != nil {
+		data["Status"] = strconv.Quote(*ir.Status)
 	}
 
 	tmpl, _ := template.New("ts-error").Parse(ErrorTemplate)

@@ -6,6 +6,9 @@ public sealed class {{.Name}} : Exception
 {{- if .HasScope }}
     public string? Scope { get; } = {{.Scope}};
 {{- end }}
+{{- if .HasStatus }}
+    public string? Status { get; } = {{.Status}};
+{{- end }}
 
     public {{.Name}}() : base({{.Message}})
     {

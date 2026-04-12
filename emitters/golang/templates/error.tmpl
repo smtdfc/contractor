@@ -5,6 +5,9 @@ type {{.Name}} struct {
 {{- if .HasScope }}
     Scope string
 {{- end }}
+{{- if .HasStatus }}
+    Status string
+{{- end }}
 }
 
 func (e *{{.Name}}) Error() string {
@@ -18,6 +21,9 @@ func New{{.Name}}() *{{.Name}} {
 {{- end }}
 {{- if .HasScope }}
         Scope: {{.Scope}},
+{{- end }}
+{{- if .HasStatus }}
+        Status: {{.Status}},
 {{- end }}
     }
 }

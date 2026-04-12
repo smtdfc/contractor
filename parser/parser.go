@@ -447,6 +447,12 @@ func (p *Parser) ParseErrorDecl() (*ErrorDeclNode, exception.IException) {
 				return nil, err
 			}
 			node.ScopeValue = v
+		case "status":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.StatusValue = v
 		default:
 			return nil, exception.NewSyntaxException("Unknown error property '"+key+"'", p.Current.Loc)
 		}
