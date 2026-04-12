@@ -125,4 +125,85 @@
         {
             if (value is not bool) throw new ValidatorException(msg);
         }
+
+        public static void ValidateModel(object? value, string msg)
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            var method = value.GetType().GetMethod("Validate", Type.EmptyTypes);
+            if (method is null)
+            {
+                return;
+            }
+
+            try
+            {
+                method.Invoke(value, null);
+            }
+            catch
+            {
+                throw new ValidatorException(msg);
+            }
+        }
+
+        private static Dictionary<string, List<string>> PrefixErrors(string path, IReadOnlyDictionary<string, List<string>> errors)
+        {
+            var prefixed = new Dictionary<string, List<string>>();
+            foreach (var kv in errors)
+            {
+                var key = string.IsNullOrEmpty(kv.Key) ? path : $"{path}.{kv.Key}";
+                prefixed[key] = new List<string>(kv.Value);
+            }
+
+            return prefixed;
+        }
+
+        public static void NestedValidate(object? value, string path, string msg)
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (value is IEnumerable items && value is not string)
+            {
+                var index = 0;
+                foreach (var item in items)
+                {
+                    NestedValidate(item, $"{path}[{index}]", msg);
+                    index++;
+                }
+
+                return;
+            }
+
+            var method = value.GetType().GetMethod("Validate", Type.EmptyTypes);
+            if (method is null)
+            {
+                return;
+            }
+
+            try
+            {
+                method.Invoke(value, null);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is ValidationException vex)
+            {
+                throw new ValidationException(vex.Message, PrefixErrors(path, vex.Errors));
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is ValidatorException vex)
+            {
+                throw new ValidationException("validation failed", new Dictionary<string, List<string>>
+                {
+                    [path] = new List<string> { vex.Message }
+                });
+            }
+            catch
+            {
+                throw new ValidatorException(msg);
+            }
+        }
     }

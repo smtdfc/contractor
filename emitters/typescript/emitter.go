@@ -21,6 +21,22 @@ func NewTypescriptEmitter() *TypescriptEmitter {
 	return &TypescriptEmitter{}
 }
 
+func (e *TypescriptEmitter) isNestedModelType(typeIR *generator.TypeIR) bool {
+	if typeIR == nil {
+		return false
+	}
+
+	if typeIR.Kind == generator.TypeKindModel {
+		return true
+	}
+
+	if typeIR.Kind == generator.TypeKindBuiltin && typeIR.Name == "Array" && len(typeIR.Generics) == 1 {
+		return typeIR.Generics[0] != nil && typeIR.Generics[0].Kind == generator.TypeKindModel
+	}
+
+	return false
+}
+
 func (e *TypescriptEmitter) EmitTypeParams(params []string) string {
 	if len(params) == 0 {
 		return ""
@@ -137,28 +153,46 @@ func (e *TypescriptEmitter) EmitModelField(ir *generator.ModelField) (string, ex
 }
 
 func (e *TypescriptEmitter) EmitConstructor(ir *generator.ModelIR) (string, exception.IException) {
-	params := make([]string, 0, len(ir.Fields))
 	assignments := make([]string, 0, len(ir.Fields))
 
 	for _, field := range ir.Fields {
-		typeStr, err := e.EmitType(field.Type)
-		if err != nil {
-			return "", err
+		fieldRef := fmt.Sprintf("data.%s", field.Name)
+
+		if field.Type != nil && field.Type.Kind == generator.TypeKindModel {
+			assignments = append(assignments, fmt.Sprintf(
+				"this.%s = %s ? (%s instanceof %s ? %s : new %s(%s)) : undefined;",
+				field.Name,
+				fieldRef,
+				fieldRef,
+				field.Type.Name,
+				fieldRef,
+				field.Type.Name,
+				fieldRef,
+			))
+			continue
 		}
 
-		if field.IsOptional {
-			params = append(params, fmt.Sprintf("%s?: %s", field.Name, typeStr))
-		} else {
-			params = append(params, fmt.Sprintf("%s: %s", field.Name, typeStr))
+		if field.Type != nil && field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" && len(field.Type.Generics) == 1 {
+			itemType := field.Type.Generics[0]
+			if itemType != nil && itemType.Kind == generator.TypeKindModel {
+				assignments = append(assignments, fmt.Sprintf(
+					"this.%s = Array.isArray(%s) ? %s.map((item: any) => item instanceof %s ? item : new %s(item)) : undefined;",
+					field.Name,
+					fieldRef,
+					fieldRef,
+					itemType.Name,
+					itemType.Name,
+				))
+				continue
+			}
 		}
 
-		assignments = append(assignments, fmt.Sprintf("this.%s = %s;", field.Name, field.Name))
+		assignments = append(assignments, fmt.Sprintf("this.%s = %s;", field.Name, fieldRef))
 	}
 
 	tmpl, _ := template.New("ts-constructor").Parse(ConstructorTemplate)
 
 	data := map[string]any{
-		"Params":      strings.Join(params, ", "),
 		"Assignments": assignments,
 	}
 
@@ -173,14 +207,32 @@ func (e *TypescriptEmitter) EmitConstructor(ir *generator.ModelIR) (string, exce
 
 func (e *TypescriptEmitter) EmitFieldValidator(v *generator.FieldValidator, field *generator.ModelField) (string, exception.IException) {
 	fieldRef := fmt.Sprintf("this.%s", field.Name)
+	defaultMsg := "invalid model"
 
-	if v.Name == "IsModel" && field.Type != nil && field.Type.Kind == generator.TypeKindModel {
-		validateCall := fmt.Sprintf("%s.validate(%s);", field.Type.Name, fieldRef)
-		if field.IsOptional {
-			return fmt.Sprintf("if (%s !== undefined) { %s }", fieldRef, validateCall), nil
+	if v.Name == "NestedValidate" && e.isNestedModelType(field.Type) {
+		msg := strconv.Quote(defaultMsg)
+		if len(v.Args) > 0 {
+			value, err := e.EmitValue(v.Args[0])
+			if err != nil {
+				return "", err
+			}
+			msg = value
 		}
 
-		return validateCall, nil
+		return fmt.Sprintf("NestedValidate(%s, %s, %s);", fieldRef, strconv.Quote(field.Name), msg), nil
+	}
+
+	if v.Name == "IsModel" && field.Type != nil && field.Type.Kind == generator.TypeKindModel {
+		msg := strconv.Quote(defaultMsg)
+		if len(v.Args) > 0 {
+			value, err := e.EmitValue(v.Args[0])
+			if err != nil {
+				return "", err
+			}
+			msg = value
+		}
+
+		return fmt.Sprintf("ValidateModel(%s, %s);", fieldRef, msg), nil
 	}
 
 	args := make([]string, 0, len(v.Args))

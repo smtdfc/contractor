@@ -10,6 +10,12 @@
                 {{ $item.Line }}
             } catch (ex: ValidatorException) {
                 addError("{{ $item.Field }}", ex.message ?: "validation failed")
+            } catch (ex: ValidationException) {
+                ex.errors.forEach { (key, values) ->
+                    values.forEach { message ->
+                        addError(key, message)
+                    }
+                }
             }
 {{- end }}
 

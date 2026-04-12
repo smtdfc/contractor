@@ -22,6 +22,16 @@
                         {
                                 AddError("{{ $item.Field }}", ex.Message);
                         }
+                        catch (ValidationException ex)
+                        {
+                                foreach (var kv in ex.Errors)
+                                {
+                                        foreach (var message in kv.Value)
+                                        {
+                                                AddError(kv.Key, message);
+                                        }
+                                }
+                        }
 {{- end }}
 
                         if (errors.Count > 0)

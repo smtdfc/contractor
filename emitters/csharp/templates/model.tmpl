@@ -4,6 +4,17 @@
         {{ $field }}
 {{- end }}
 
+        public static {{.Name}}{{.TypeParams}} FromJson(string json)
+        {
+            var instance = JsonSerializer.Deserialize<{{.Name}}{{.TypeParams}}>(json);
+            if (instance is null)
+            {
+                throw new ValidatorException("invalid json");
+            }
+
+            return instance;
+        }
+
 {{- if .ConstructorCode }}
 {{.ConstructorCode}}
 {{- end }}

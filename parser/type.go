@@ -355,6 +355,10 @@ func (c *TypeChecker) CheckModelFieldType(node *ModelFieldDeclNode) exception.IE
 		return err
 	}
 
+	if hasAnnotationNode(node.Annotations, "NestedValidate") && !c.isModelTypeOrArrayOfModel(node.Type) {
+		return exception.NewTypeException("Annotation 'NestedValidate' can only be used on model or Array<Model> fields", node.Type.Loc)
+	}
+
 	return nil
 }
 
@@ -674,6 +678,11 @@ func NewTypeChecker() *TypeChecker {
 	isModel.Args["message"] = newTypeRef("String")
 	ctx.Add(isModel)
 
+	nestedValidate := NewAnnotationSymbol("NestedValidate", true)
+	nestedValidate.ArgOrder = append(nestedValidate.ArgOrder, "message")
+	nestedValidate.Args["message"] = newTypeRef("String")
+	ctx.Add(nestedValidate)
+
 	i := &TypeChecker{
 		Context:  ctx,
 		Warnings: make([]TypeWarning, 0),
@@ -780,4 +789,30 @@ func (c *TypeChecker) isUserDefinedType(node *TypeDeclNode) bool {
 	}
 
 	return !sym.BuiltIn()
+}
+
+func hasAnnotationNode(nodes []*AnnotationNode, name string) bool {
+	for _, node := range nodes {
+		if node != nil && node.Name != nil && node.Name.Value == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *TypeChecker) isModelTypeOrArrayOfModel(node *TypeDeclNode) bool {
+	if node == nil || node.Name == nil {
+		return false
+	}
+
+	if c.isUserDefinedType(node) {
+		return true
+	}
+
+	if node.Name.Value != "Array" || len(node.Generics) != 1 {
+		return false
+	}
+
+	return c.isUserDefinedType(node.Generics[0])
 }

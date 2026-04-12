@@ -17,6 +17,34 @@ type GoEmitter struct{}
 
 var _ emitters.ProgramEmitter = (*GoEmitter)(nil)
 
+func (e *GoEmitter) isNestedModelType(typeIR *generator.TypeIR) bool {
+	if typeIR == nil {
+		return false
+	}
+
+	if typeIR.Kind == generator.TypeKindModel {
+		return true
+	}
+
+	if typeIR.Kind == generator.TypeKindBuiltin && typeIR.Name == "Array" && len(typeIR.Generics) == 1 {
+		return typeIR.Generics[0] != nil && typeIR.Generics[0].Kind == generator.TypeKindModel
+	}
+
+	return false
+}
+
+func (e *GoEmitter) isArrayOfModelType(typeIR *generator.TypeIR) bool {
+	if typeIR == nil {
+		return false
+	}
+
+	if typeIR.Kind != generator.TypeKindBuiltin || typeIR.Name != "Array" || len(typeIR.Generics) != 1 {
+		return false
+	}
+
+	return typeIR.Generics[0] != nil && typeIR.Generics[0].Kind == generator.TypeKindModel
+}
+
 func (e *GoEmitter) EmitBuildInType(ir *generator.TypeIR) (string, exception.IException) {
 
 	switch ir.Name {
@@ -218,6 +246,7 @@ func (e *GoEmitter) EmitModel(ir *generator.ModelIR) (string, exception.IExcepti
 		"Name":       ir.Name,
 		"Fields":     fields,
 		"TypeParams": e.EmitTypeParams(ir.TypeParams, true),
+		"Generics":   e.EmitTypeParams(ir.TypeParams, false),
 	}
 
 	tmpl, _ := template.New("test").Parse(ModelTemplate)
@@ -255,7 +284,7 @@ func (e *GoEmitter) EmitValidator(ir *generator.ModelIR) (string, exception.IExc
 
 	for _, field := range ir.Fields {
 		for _, validator := range field.Validators {
-			validatorCode, err := e.EmitFieldValidator(validator, field.Name, field.Type.Kind == generator.TypeKindModel, field.IsOptional, field.Type)
+			validatorCode, err := e.EmitFieldValidator(validator, field.Name, field.Type)
 			if err != nil {
 				return "", err
 			}
@@ -278,7 +307,7 @@ func (e *GoEmitter) EmitValidator(ir *generator.ModelIR) (string, exception.IExc
 	return tpl.String(), nil
 }
 
-func (e *GoEmitter) EmitFieldValidator(ir *generator.FieldValidator, name string, isModelType bool, isOptional bool, typeDef *generator.TypeIR) (string, exception.IException) {
+func (e *GoEmitter) EmitFieldValidator(ir *generator.FieldValidator, name string, typeDef *generator.TypeIR) (string, exception.IException) {
 
 	args := []string{}
 	for _, arg := range ir.Args {
@@ -289,10 +318,41 @@ func (e *GoEmitter) EmitFieldValidator(ir *generator.FieldValidator, name string
 		args = append(args, argValue)
 	}
 
-	if ir.Name == "IsModel" && isModelType {
-		_ = isOptional
-		modelValue := fmt.Sprintf("instance.%s", helpers.ToPascalCase(name))
-		return fmt.Sprintf(`if err := %sValidate(%s); err != nil { return NewValidatorError(%s) }`, typeDef.Name, modelValue, args[0]), nil
+	if ir.Name == "IsModel" {
+		msg := strconv.Quote("invalid model")
+		if len(args) > 0 {
+			msg = args[0]
+		}
+
+		return fmt.Sprintf(`if err := ValidateModel(instance.%s,%s); err != nil { return err }`, helpers.ToPascalCase(name), msg), nil
+	}
+
+	if ir.Name == "NestedValidate" && e.isNestedModelType(typeDef) {
+		msg := strconv.Quote("invalid model")
+		if len(args) > 0 {
+			msg = args[0]
+		}
+		_ = msg
+
+		fieldRef := fmt.Sprintf("instance.%s", helpers.ToPascalCase(name))
+		fieldPath := strconv.Quote(name)
+
+		if e.isArrayOfModelType(typeDef) {
+			return fmt.Sprintf(`for i, item := range %s {
+		if item == nil {
+			continue
+		}
+		if err := item.Validate(); err != nil {
+			return NewValidatorError(%s + "[" + intToString(i) + "]: " + err.Error())
+		}
+	}`, fieldRef, fieldPath), nil
+		}
+
+		return fmt.Sprintf(`if %s != nil {
+		if err := %s.Validate(); err != nil {
+			return NewValidatorError(%s + ": " + err.Error())
+		}
+	}`, fieldRef, fieldRef, fieldPath), nil
 	}
 
 	return fmt.Sprintf(`if err := %s(instance.%s,%s); err != nil { return err }`, ir.Name, helpers.ToPascalCase(name), strings.Join(args, ",")), nil
@@ -448,6 +508,7 @@ func (e *GoEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException)
 		"Errors":      errors.String(),
 		"ErrorMap":    e.EmitErrorMap(ir.Errors),
 		"Models":      models.String(),
+		"HasModels":   len(ir.Models) > 0,
 		"Rests":       rests.String(),
 		"HasRests":    len(ir.Rests) > 0,
 	}

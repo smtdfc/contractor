@@ -3,6 +3,11 @@ export class {{.Name}}{{.TypeParams}} {
   {{ $field }}
 {{- end }}
 
+  static fromJson(json: string): {{.Name}} {
+    const data = JSON.parse(json);
+    return data instanceof {{.Name}} ? data : new {{.Name}}(data);
+  }
+
 {{- if .ConstructorCode }}
 {{.ConstructorCode}}
 {{- end }}

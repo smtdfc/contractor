@@ -3,3 +3,11 @@ func {{.Name}}Validate{{.TypeParams}}(instance *{{.Name}}{{.Generics}}) error{
 
     return nil
 }
+
+func (instance *{{.Name}}{{.Generics}}) Validate() error {
+    if instance == nil {
+        return nil
+    }
+
+    return {{.Name}}Validate(instance)
+}

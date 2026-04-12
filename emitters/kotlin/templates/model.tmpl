@@ -3,6 +3,16 @@
     {{ $field }}
 {{- end }}
 
+    companion object {
+      fun <TModel> fromJson(json: String, decoder: (String) -> TModel): TModel {
+        return decoder(json)
+      }
+
+      fun fromJson(json: String): Nothing {
+        throw UnsupportedOperationException("No default JSON decoder for Kotlin target. Use fromJson(json, decoder).")
+      }
+    }
+
 {{- if .ConstructorCode }}
 {{.ConstructorCode}}
 {{- end }}

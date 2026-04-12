@@ -8,6 +8,12 @@
                 {{ $item.Line }}
             } catch (ValidatorException ex) {
                 addError.accept("{{ $item.Field }}", ex.getMessage());
+            } catch (ValidationException ex) {
+                for (var entry : ex.errors.entrySet()) {
+                    for (var message : entry.getValue()) {
+                        addError.accept(entry.getKey(), message);
+                    }
+                }
             }
 {{- end }}
 

@@ -158,4 +158,68 @@
         throw new ValidatorException(msg);
       }
     }
+
+    public static void ValidateModel(Object value, String msg) {
+      if (value == null) {
+        return;
+      }
+
+      try {
+        var method = value.getClass().getMethod("validate");
+        method.invoke(value);
+      } catch (NoSuchMethodException ex) {
+        return;
+      } catch (Exception ex) {
+        throw new ValidatorException(msg);
+      }
+    }
+
+    private static Map<String, List<String>> prefixErrors(String path, Map<String, List<String>> errors) {
+      Map<String, List<String>> result = new LinkedHashMap<>();
+
+      for (Map.Entry<String, List<String>> entry : errors.entrySet()) {
+        String key = entry.getKey();
+        String nextKey = (key == null || key.isEmpty()) ? path : path + "." + key;
+        result.put(nextKey, new ArrayList<>(entry.getValue()));
+      }
+
+      return result;
+    }
+
+    public static void NestedValidate(Object value, String path, String msg) {
+      if (value == null) {
+        return;
+      }
+
+      if (value instanceof Iterable<?> iterable) {
+        int index = 0;
+        for (Object item : iterable) {
+          NestedValidate(item, path + "[" + index + "]", msg);
+          index++;
+        }
+        return;
+      }
+
+      try {
+        Method method = value.getClass().getMethod("validate");
+        method.invoke(value);
+      } catch (NoSuchMethodException ex) {
+        return;
+      } catch (InvocationTargetException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof ValidationException vex) {
+          throw new ValidationException(vex.getMessage(), prefixErrors(path, vex.errors));
+        }
+
+        if (cause instanceof ValidatorException vex) {
+          Map<String, List<String>> errors = new LinkedHashMap<>();
+          errors.put(path, new ArrayList<>(List.of(vex.getMessage())));
+          throw new ValidationException("validation failed", errors);
+        }
+
+        throw new ValidatorException(msg);
+      } catch (Exception ex) {
+        throw new ValidatorException(msg);
+      }
+    }
   }

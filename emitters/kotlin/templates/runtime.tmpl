@@ -112,4 +112,61 @@
     fun IsBool(value: Any?, msg: String) {
       if (value !is Boolean) throw ValidatorException(msg)
     }
+
+    fun ValidateModel(value: Any?, msg: String) {
+      if (value == null) {
+        return
+      }
+
+      val method = value::class.java.methods.firstOrNull {
+        it.name == "validate" && it.parameterCount == 0
+      } ?: return
+
+      try {
+        method.invoke(value)
+      } catch (_: Exception) {
+        throw ValidatorException(msg)
+      }
+    }
+
+    private fun prefixErrors(path: String, errors: Map<String, List<String>>): Map<String, List<String>> {
+      val result = linkedMapOf<String, List<String>>()
+      for ((key, value) in errors) {
+        val nextKey = if (key.isEmpty()) path else "$path.$key"
+        result[nextKey] = value.toList()
+      }
+
+      return result
+    }
+
+    fun NestedValidate(value: Any?, path: String, msg: String) {
+      if (value == null) {
+        return
+      }
+
+      if (value is Iterable<*>) {
+        value.forEachIndexed { index, item ->
+          NestedValidate(item, "$path[$index]", msg)
+        }
+
+        return
+      }
+
+      val method = value::class.java.methods.firstOrNull {
+        it.name == "validate" && it.parameterCount == 0
+      } ?: return
+
+      try {
+        method.invoke(value)
+      } catch (ex: java.lang.reflect.InvocationTargetException) {
+        val cause = ex.cause
+        when (cause) {
+          is ValidationException -> throw ValidationException(cause.message ?: "validation failed", prefixErrors(path, cause.errors))
+          is ValidatorException -> throw ValidationException("validation failed", mapOf(path to listOf(cause.message ?: msg)))
+          else -> throw ValidatorException(msg)
+        }
+      } catch (_: Exception) {
+        throw ValidatorException(msg)
+      }
+    }
   }

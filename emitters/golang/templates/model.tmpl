@@ -4,3 +4,13 @@ type {{.Name}}{{.TypeParams}} struct {
 {{- end }}
 }
 
+func {{.Name}}FromJSON{{.TypeParams}}(jsonText string) (*{{.Name}}{{.Generics}}, error) {
+    var value {{.Name}}{{.Generics}}
+
+    if err := json.Unmarshal([]byte(jsonText), &value); err != nil {
+        return nil, err
+    }
+
+    return &value, nil
+}
+

@@ -15,6 +15,12 @@
     } catch (error) {
       if (error instanceof ValidatorError) {
         addError("{{ $item.Field }}", error.message);
+      } else if (error instanceof ValidationError) {
+        for (const [key, messages] of Object.entries(error.errors)) {
+          for (const message of messages) {
+            addError(key, message);
+          }
+        }
       } else {
         throw error;
       }

@@ -151,3 +151,63 @@ export function IsBool(value: unknown, msg: string): void {
     throw new ValidatorError(msg);
   }
 }
+
+export function ValidateModel(value: unknown, msg: string): void {
+  if (value === null || value === undefined) {
+    return;
+  }
+
+  const candidate = value as { validate?: () => void };
+  if (typeof candidate.validate !== "function") {
+    return;
+  }
+
+  try {
+    candidate.validate();
+  } catch {
+    throw new ValidatorError(msg);
+  }
+}
+
+function prefixErrorPaths(path: string, errors: Record<string, string[]>): Record<string, string[]> {
+  const prefixed: Record<string, string[]> = {};
+
+  for (const [key, messages] of Object.entries(errors)) {
+    const nextKey = key ? `${path}.${key}` : path;
+    prefixed[nextKey] = messages;
+  }
+
+  return prefixed;
+}
+
+export function NestedValidate(value: unknown, path: string, msg: string): void {
+  if (value === null || value === undefined) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      NestedValidate(item, `${path}[${index}]`, msg);
+    });
+    return;
+  }
+
+  const candidate = value as { validate?: () => void };
+  if (typeof candidate.validate !== "function") {
+    return;
+  }
+
+  try {
+    candidate.validate();
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new ValidationError(error.message, prefixErrorPaths(path, error.errors));
+    }
+
+    if (error instanceof ValidatorError) {
+      throw new ValidationError("validation failed", { [path]: [error.message] });
+    }
+
+    throw new ValidatorError(msg);
+  }
+}

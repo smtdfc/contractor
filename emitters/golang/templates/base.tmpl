@@ -1,5 +1,9 @@
 package {{.PackageName}}
 
+{{- if .HasModels }}
+import "encoding/json"
+{{- end }}
+
 {{.Errors}}
 {{.ErrorMap}}
 
@@ -259,6 +263,54 @@ func IsBool(value any, msg string) error {
 func IsModel(_ any, _ string) error {
     // Model validation is emitted directly via <Model>Validate(...)
     return nil
+}
+
+type modelValidator interface {
+    Validate() error
+}
+
+func ValidateModel(value any, msg string) error {
+    if value == nil {
+        return nil
+    }
+
+    validator, ok := value.(modelValidator)
+    if !ok {
+        return nil
+    }
+
+    if err := validator.Validate(); err != nil {
+        return NewValidatorError(msg)
+    }
+
+    return nil
+}
+
+func intToString(n int) string {
+    if n == 0 {
+        return "0"
+    }
+
+    negative := n < 0
+    if negative {
+        n = -n
+    }
+
+    digits := make([]byte, 0, 12)
+    for n > 0 {
+        digits = append(digits, byte('0'+(n%10)))
+        n /= 10
+    }
+
+    if negative {
+        digits = append(digits, '-')
+    }
+
+    for i, j := 0, len(digits)-1; i < j; i, j = i+1, j-1 {
+        digits[i], digits[j] = digits[j], digits[i]
+    }
+
+    return string(digits)
 }
 
 func toFloat64(value any) (float64, bool) {

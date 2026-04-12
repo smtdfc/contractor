@@ -21,6 +21,22 @@ func NewCSharpEmitter() *CSharpEmitter {
 	return &CSharpEmitter{}
 }
 
+func (e *CSharpEmitter) isNestedModelType(typeIR *generator.TypeIR) bool {
+	if typeIR == nil {
+		return false
+	}
+
+	if typeIR.Kind == generator.TypeKindModel {
+		return true
+	}
+
+	if typeIR.Kind == generator.TypeKindBuiltin && typeIR.Name == "Array" && len(typeIR.Generics) == 1 {
+		return typeIR.Generics[0] != nil && typeIR.Generics[0].Kind == generator.TypeKindModel
+	}
+
+	return false
+}
+
 func (e *CSharpEmitter) emitTypeParams(params []string) string {
 	if len(params) == 0 {
 		return ""
@@ -180,13 +196,34 @@ func (e *CSharpEmitter) EmitConstructor(ir *generator.ModelIR) (string, exceptio
 func (e *CSharpEmitter) EmitFieldValidator(v *generator.FieldValidator, field *generator.ModelField) (string, exception.IException) {
 	fieldName := helpers.ToPascalCase(field.Name)
 	fieldRef := fieldName
+	defaultMsg := "invalid model"
+
+	if v.Name == "NestedValidate" && e.isNestedModelType(field.Type) {
+		msg := strconv.Quote(defaultMsg)
+		if len(v.Args) > 0 {
+			value, err := e.EmitValue(v.Args[0])
+			if err != nil {
+				return "", err
+			}
+
+			msg = value
+		}
+
+		return fmt.Sprintf("Validators.NestedValidate(%s, %s, %s);", fieldRef, strconv.Quote(field.Name), msg), nil
+	}
 
 	if v.Name == "IsModel" && field.Type != nil && field.Type.Kind == generator.TypeKindModel {
-		line := fmt.Sprintf("%s?.Validate();", fieldRef)
-		if field.IsOptional {
-			return line, nil
+		msg := strconv.Quote(defaultMsg)
+		if len(v.Args) > 0 {
+			value, err := e.EmitValue(v.Args[0])
+			if err != nil {
+				return "", err
+			}
+
+			msg = value
 		}
-		return fmt.Sprintf("%s.Validate();", fieldRef), nil
+
+		return fmt.Sprintf("Validators.ValidateModel(%s, %s);", fieldRef, msg), nil
 	}
 
 	args := make([]string, 0, len(v.Args))
