@@ -498,6 +498,15 @@ func (c *TypeChecker) CheckErrorType(node *ErrorDeclNode) exception.IException {
 		}
 	}
 
+	if node.StatusValue != nil {
+		switch node.StatusValue.(type) {
+		case *StringValueNode, *NumberValueNode:
+			// status can be either quoted ("404") or numeric (404)
+		default:
+			return exception.NewTypeException("Error property 'status' must be a string or number literal", node.StatusValue.GetLocation())
+		}
+	}
+
 	return nil
 }
 

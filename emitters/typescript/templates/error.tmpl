@@ -1,12 +1,12 @@
 export class {{.Name}} extends Error {
 {{- if .HasCode }}
-  readonly code = {{.Code}};
+  public code = {{.Code}};
 {{- end }}
 {{- if .HasScope }}
-  readonly scope = {{.Scope}};
+  public scope = {{.Scope}};
 {{- end }}
 {{- if .HasStatus }}
-  readonly status = {{.Status}};
+  public status = {{.Status}};
 {{- end }}
 
   constructor() {

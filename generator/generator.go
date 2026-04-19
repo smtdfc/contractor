@@ -268,7 +268,7 @@ func (g *IRGenerator) errorToIR(node *parser.ErrorDeclNode) (*ErrorIR, exception
 		Code:    stringValueOrNil(node.CodeValue),
 		Message: message,
 		Scope:   stringValueOrNil(node.ScopeValue),
-		Status:  stringValueOrNil(node.StatusValue),
+		Status:  statusValueOrNil(node.StatusValue),
 	}, nil
 }
 
@@ -388,6 +388,29 @@ func stringValueOrNil(node parser.ASTValueNode) *string {
 
 	result := value.Value
 	return &result
+}
+
+func statusValueOrNil(node parser.ASTValueNode) *string {
+	if node == nil {
+		return nil
+	}
+
+	switch value := node.(type) {
+	case *parser.StringValueNode:
+		if value == nil {
+			return nil
+		}
+		result := value.Value
+		return &result
+	case *parser.NumberValueNode:
+		if value == nil {
+			return nil
+		}
+		result := value.Value
+		return &result
+	default:
+		return nil
+	}
 }
 
 func toSourceSpan(loc *parser.Location) *SourceSpan {
