@@ -1,3 +1,5 @@
+export type {{.Name}}Input{{.TypeParams}} = Partial<Omit<{{.Name}}{{.TypeParams}}, "validate">>;
+
 export class {{.Name}}{{.TypeParams}} {
 {{- range $index, $field := .Fields }}
   {{ $field }}

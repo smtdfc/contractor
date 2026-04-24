@@ -193,6 +193,8 @@ func (e *TypescriptEmitter) EmitConstructor(ir *generator.ModelIR) (string, exce
 	tmpl, _ := template.New("ts-constructor").Parse(ConstructorTemplate)
 
 	data := map[string]any{
+		"Name":        ir.Name,
+		"TypeParams":  e.EmitTypeParams(ir.TypeParams),
 		"Assignments": assignments,
 	}
 
