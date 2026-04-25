@@ -8,11 +8,6 @@ import (
 	"strings"
 
 	"github.com/smtdfc/contractor/emitters"
-	"github.com/smtdfc/contractor/emitters/csharp"
-	"github.com/smtdfc/contractor/emitters/golang"
-	"github.com/smtdfc/contractor/emitters/java"
-	"github.com/smtdfc/contractor/emitters/kotlin"
-	"github.com/smtdfc/contractor/emitters/typescript"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/config"
 	"github.com/smtdfc/contractor/parser"
@@ -151,16 +146,16 @@ func parseProgram(filePath string, code string) (*generator.ProgramIR, error) {
 
 func resolveEmitter(language string) (emitters.ProgramEmitter, string, error) {
 	switch normalizeLanguage(language) {
-	case "go", "golang":
-		return golang.NewGoEmitter(), ".go", nil
-	case "typescript", "ts":
-		return typescript.NewTypescriptEmitter(), ".ts", nil
-	case "java":
-		return java.NewJavaEmitter(), ".java", nil
-	case "kotlin", "kt":
-		return kotlin.NewKotlinEmitter(), ".kt", nil
-	case "csharp", "cs", "c#":
-		return csharp.NewCSharpEmitter(), ".cs", nil
+	// case "go", "golang":
+	// 	return golang.NewGoEmitter(), ".go", nil
+	// case "typescript", "ts":
+	// 	return typescript.NewTypescriptEmitter(), ".ts", nil
+	// case "java":
+	// 	return java.NewJavaEmitter(), ".java", nil
+	// case "kotlin", "kt":
+	// 	return kotlin.NewKotlinEmitter(), ".kt", nil
+	// case "csharp", "cs", "c#":
+	// 	return csharp.NewCSharpEmitter(), ".cs", nil
 	default:
 		return nil, "", fmt.Errorf("unsupported target language: %s", language)
 	}
