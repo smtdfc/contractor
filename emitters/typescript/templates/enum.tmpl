@@ -1,0 +1,6 @@
+export enum {{.Name}} {
+    {{- range .Members}}
+    {{.Key}} = "{{.Value}}"{{if not .IsLast}},{{end}}
+    {{- end}}
+}
+

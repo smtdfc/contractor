@@ -37,6 +37,10 @@ func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, exceptio
 		typeName.WriteString(ir.Name)
 	}
 
+	if ir.Kind == generator.TypeKindEnum {
+		typeName.WriteString(ir.Name)
+	}
+
 	if ir.Kind == generator.TypeKindGeneric {
 		typeName.WriteString(ir.Name)
 	}
@@ -179,6 +183,30 @@ func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.Rest
 	return sb.String(), nil
 }
 
+func (t *TypescriptEmitter) EmitEnum(tmpl *template.Template, ir *generator.EnumIR) (string, exception.IException) {
+	var sb strings.Builder
+
+	members := make([]map[string]any, 0, len(ir.Members))
+	for i, member := range ir.Members {
+		members = append(members, map[string]any{
+			"Key":    member,
+			"Value":  member,
+			"IsLast": i == len(ir.Members)-1,
+		})
+	}
+
+	data := map[string]any{
+		"Name":    ir.Name,
+		"Members": members,
+	}
+
+	if err := tmpl.ExecuteTemplate(&sb, "enum.tmpl", data); err != nil {
+		return "", exception.NewEmitException(err.Error(), nil)
+	}
+
+	return sb.String(), nil
+}
+
 func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
 	var sb strings.Builder
 	tmpl, err := template.ParseFS(templateFiles, "templates/*.tmpl")
@@ -192,6 +220,15 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 
 	for _, model := range ir.Models {
 		code, err := t.EmitModel(tmpl, model)
+		if err != nil {
+			return "", err
+		}
+
+		sb.WriteString(code)
+	}
+
+	for _, enumItem := range ir.Enums {
+		code, err := t.EmitEnum(tmpl, enumItem)
 		if err != nil {
 			return "", err
 		}

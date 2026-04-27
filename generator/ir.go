@@ -41,6 +41,7 @@ type TypeKind string
 const (
 	TypeKindBuiltin TypeKind = "builtin"
 	TypeKindModel   TypeKind = "model"
+	TypeKindEnum    TypeKind = "enum"
 	TypeKindGeneric TypeKind = "generic"
 	TypeKindUnknown TypeKind = "unknown"
 )
@@ -62,6 +63,7 @@ func (m *ModelIR) GetKind() string {
 type ProgramIR struct {
 	Errors []*ErrorIR
 	Models []*ModelIR
+	Enums  []*EnumIR
 	Rests  []*RestEndpointIR
 }
 
@@ -80,6 +82,16 @@ type ErrorIR struct {
 
 func (e *ErrorIR) GetKind() string {
 	return "error"
+}
+
+type EnumIR struct {
+	Span    *SourceSpan
+	Name    string
+	Members []string
+}
+
+func (e *EnumIR) GetKind() string {
+	return "enum"
 }
 
 type ModelField struct {

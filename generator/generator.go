@@ -55,27 +55,35 @@ func NewIRGenerator() *IRGenerator {
 
 func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exception.IException) {
 	if ast == nil {
-		return &ProgramIR{Errors: make([]*ErrorIR, 0), Models: make([]*ModelIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
+		return &ProgramIR{Errors: make([]*ErrorIR, 0), Models: make([]*ModelIR, 0), Enums: make([]*EnumIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
 	}
 
-	modelSymbols, err := g.collectModelSymbols(ast)
+	typeSymbols, err := g.collectTypeSymbols(ast)
 	if err != nil {
 		return nil, err
 	}
 
 	errors := make([]*ErrorIR, 0)
 	models := make([]*ModelIR, 0)
+	enums := make([]*EnumIR, 0)
 	rests := make([]*RestEndpointIR, 0)
 
 	for _, node := range ast.Body {
 		switch v := node.(type) {
 		case *parser.ModelDeclNode:
-			modelIR, err := g.modelToIR(v, modelSymbols)
+			modelIR, err := g.modelToIR(v, typeSymbols)
 			if err != nil {
 				return nil, err
 			}
 
 			models = append(models, modelIR)
+		case *parser.EnumDeclNode:
+			enumIR, err := g.enumToIR(v)
+			if err != nil {
+				return nil, err
+			}
+
+			enums = append(enums, enumIR)
 		case *parser.ErrorDeclNode:
 			errorIR, err := g.errorToIR(v)
 			if err != nil {
@@ -84,7 +92,7 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 
 			errors = append(errors, errorIR)
 		case *parser.RestDeclNode:
-			restIR, err := g.restToIR(v, modelSymbols)
+			restIR, err := g.restToIR(v, typeSymbols)
 			if err != nil {
 				return nil, err
 			}
@@ -96,34 +104,43 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 	return &ProgramIR{
 		Errors: errors,
 		Models: models,
+		Enums:  enums,
 		Rests:  rests,
 	}, nil
 }
 
-func (g *IRGenerator) collectModelSymbols(ast *parser.ProgramNode) (map[string]struct{}, exception.IException) {
-	result := make(map[string]struct{})
+func (g *IRGenerator) collectTypeSymbols(ast *parser.ProgramNode) (map[string]TypeKind, exception.IException) {
+	result := make(map[string]TypeKind)
 
 	for _, node := range ast.Body {
-		modelNode, ok := node.(*parser.ModelDeclNode)
-		if !ok {
-			continue
-		}
+		switch typed := node.(type) {
+		case *parser.ModelDeclNode:
+			if typed.Name == nil {
+				return nil, exception.NewTypeException("Model name is missing", typed.Loc)
+			}
 
-		if modelNode.Name == nil {
-			return nil, exception.NewTypeException("Model name is missing", modelNode.Loc)
-		}
+			if _, exists := result[typed.Name.Value]; exists {
+				return nil, exception.NewTypeException("Type '"+typed.Name.Value+"' is already defined", typed.Name.Loc)
+			}
 
-		if _, exists := result[modelNode.Name.Value]; exists {
-			return nil, exception.NewTypeException("Model '"+modelNode.Name.Value+"' is already defined", modelNode.Name.Loc)
-		}
+			result[typed.Name.Value] = TypeKindModel
+		case *parser.EnumDeclNode:
+			if typed.Name == nil {
+				return nil, exception.NewTypeException("Enum name is missing", typed.Loc)
+			}
 
-		result[modelNode.Name.Value] = struct{}{}
+			if _, exists := result[typed.Name.Value]; exists {
+				return nil, exception.NewTypeException("Type '"+typed.Name.Value+"' is already defined", typed.Name.Loc)
+			}
+
+			result[typed.Name.Value] = TypeKindEnum
+		}
 	}
 
 	return result, nil
 }
 
-func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[string]struct{}) (*ModelIR, exception.IException) {
+func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, typeSymbols map[string]TypeKind) (*ModelIR, exception.IException) {
 	if node == nil {
 		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
 		return nil, exception.NewTypeException("Model name is missing", fallbackLoc)
@@ -155,7 +172,7 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 			return nil, err
 		}
 
-		fieldType := g.typeToIR(field.Type, modelSymbols, genericSymbols)
+		fieldType := g.typeToIR(field.Type, typeSymbols, genericSymbols)
 		fieldIR := &ModelField{
 			Span:        toSourceSpan(field.Loc),
 			Name:        field.Name.Value,
@@ -190,6 +207,32 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 	}, nil
 }
 
+func (g *IRGenerator) enumToIR(node *parser.EnumDeclNode) (*EnumIR, exception.IException) {
+	if node == nil {
+		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
+		return nil, exception.NewTypeException("Enum name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return nil, exception.NewTypeException("Enum name is missing", node.GetLocation())
+	}
+
+	members := make([]string, 0, len(node.Members))
+	for _, member := range node.Members {
+		if member == nil {
+			continue
+		}
+
+		members = append(members, member.Value)
+	}
+
+	return &EnumIR{
+		Span:    toSourceSpan(node.Loc),
+		Name:    node.Name.Value,
+		Members: members,
+	}, nil
+}
+
 func (g *IRGenerator) extractValidator(node *parser.ModelFieldDeclNode) ([]*FieldValidator, exception.IException) {
 
 	validators := []*FieldValidator{}
@@ -212,7 +255,7 @@ func (g *IRGenerator) extractValidator(node *parser.ModelFieldDeclNode) ([]*Fiel
 	return validators, nil
 }
 
-func (g *IRGenerator) restToIR(node *parser.RestDeclNode, modelSymbols map[string]struct{}) (*RestEndpointIR, exception.IException) {
+func (g *IRGenerator) restToIR(node *parser.RestDeclNode, typeSymbols map[string]TypeKind) (*RestEndpointIR, exception.IException) {
 	if node == nil {
 		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
 		return nil, exception.NewTypeException("Rest name is missing", fallbackLoc)
@@ -237,12 +280,12 @@ func (g *IRGenerator) restToIR(node *parser.RestDeclNode, modelSymbols map[strin
 		return nil, err
 	}
 
-	requestType := g.typeToIR(node.RequestBodyType, modelSymbols, map[string]struct{}{})
+	requestType := g.typeToIR(node.RequestBodyType, typeSymbols, map[string]struct{}{})
 	if node.RequestBodyType == nil {
 		requestType = nil
 	}
 
-	responseType := g.typeToIR(node.ResponseBodyType, modelSymbols, map[string]struct{}{})
+	responseType := g.typeToIR(node.ResponseBodyType, typeSymbols, map[string]struct{}{})
 	if node.ResponseBodyType == nil {
 		responseType = nil
 	}
@@ -306,7 +349,7 @@ func (g *IRGenerator) queriesToIR(node parser.ASTValueNode) ([]string, exception
 	return queries, nil
 }
 
-func (g *IRGenerator) typeToIR(node *parser.TypeDeclNode, modelSymbols map[string]struct{}, genericSymbols map[string]struct{}) *TypeIR {
+func (g *IRGenerator) typeToIR(node *parser.TypeDeclNode, typeSymbols map[string]TypeKind, genericSymbols map[string]struct{}) *TypeIR {
 	if node == nil || node.Name == nil {
 		return &TypeIR{Kind: TypeKindUnknown}
 	}
@@ -318,17 +361,17 @@ func (g *IRGenerator) typeToIR(node *parser.TypeDeclNode, modelSymbols map[strin
 		kind = TypeKindGeneric
 	} else if _, ok := g.builtinTypes[name]; ok {
 		kind = TypeKindBuiltin
-	} else if _, ok := modelSymbols[name]; ok {
-		kind = TypeKindModel
+	} else if resolvedKind, ok := typeSymbols[name]; ok {
+		kind = resolvedKind
 	}
 
 	generics := make([]*TypeIR, 0, len(node.Generics))
 	for _, item := range node.Generics {
-		generics = append(generics, g.typeToIR(item, modelSymbols, genericSymbols))
+		generics = append(generics, g.typeToIR(item, typeSymbols, genericSymbols))
 	}
 
 	resolvedRef := ""
-	if kind == TypeKindModel {
+	if kind == TypeKindModel || kind == TypeKindEnum {
 		resolvedRef = name
 	}
 

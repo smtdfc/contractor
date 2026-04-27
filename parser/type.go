@@ -19,7 +19,15 @@ type TypeSymbol struct {
 	Name      string
 	IsBuiltIn bool
 	Generics  []*TypeVarNode
+	DeclKind  string
 }
+
+const (
+	TypeDeclKindBuiltin = "builtin"
+	TypeDeclKindModel   = "model"
+	TypeDeclKindEnum    = "enum"
+	TypeDeclKindGeneric = "generic"
+)
 
 type RestSymbol struct {
 	Name string
@@ -52,7 +60,24 @@ func (s *TypeSymbol) BuiltIn() bool {
 }
 
 func NewTypeSymbol(name string, isBuiltIn bool) *TypeSymbol {
-	return &TypeSymbol{Name: name, IsBuiltIn: isBuiltIn, Generics: make([]*TypeVarNode, 0)}
+	declKind := TypeDeclKindModel
+	if isBuiltIn {
+		declKind = TypeDeclKindBuiltin
+	}
+
+	return &TypeSymbol{Name: name, IsBuiltIn: isBuiltIn, Generics: make([]*TypeVarNode, 0), DeclKind: declKind}
+}
+
+func NewModelTypeSymbol(name string) *TypeSymbol {
+	return &TypeSymbol{Name: name, IsBuiltIn: false, Generics: make([]*TypeVarNode, 0), DeclKind: TypeDeclKindModel}
+}
+
+func NewEnumTypeSymbol(name string) *TypeSymbol {
+	return &TypeSymbol{Name: name, IsBuiltIn: false, Generics: make([]*TypeVarNode, 0), DeclKind: TypeDeclKindEnum}
+}
+
+func NewGenericTypeSymbol(name string) *TypeSymbol {
+	return &TypeSymbol{Name: name, IsBuiltIn: false, Generics: make([]*TypeVarNode, 0), DeclKind: TypeDeclKindGeneric}
 }
 
 func (s *RestSymbol) GetName() string {
@@ -242,8 +267,19 @@ func (c *TypeChecker) FindAllSymbol(prog *ProgramNode) exception.IException {
 				return exception.NewTypeException("Model name is missing", v.Loc)
 			}
 
-			sym := NewTypeSymbol(v.Name.Value, false)
+			sym := NewModelTypeSymbol(v.Name.Value)
 			sym.Generics = v.Generics
+			if c.Context.Find(sym) {
+				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
+			}
+
+			c.Context.Add(sym)
+		case *EnumDeclNode:
+			if v.Name == nil {
+				return exception.NewTypeException("Enum name is missing", v.Loc)
+			}
+
+			sym := NewEnumTypeSymbol(v.Name.Value)
 			if c.Context.Find(sym) {
 				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
 			}
@@ -371,7 +407,7 @@ func (c *TypeChecker) CheckModelType(node *ModelDeclNode) exception.IException {
 	c.Context = NewContext(c.Context)
 
 	for _, typeVar := range node.Generics {
-		sym := NewTypeSymbol(typeVar.Name.Value, false)
+		sym := NewGenericTypeSymbol(typeVar.Name.Value)
 		if c.Context.Find(sym) {
 			return exception.NewTypeException(fmt.Sprintf("Type parameter '%s' is already defined", sym.Name), typeVar.Name.Loc)
 		}
@@ -392,6 +428,36 @@ func (c *TypeChecker) CheckModelType(node *ModelDeclNode) exception.IException {
 	}
 
 	c.Context = ctx_
+
+	return nil
+}
+
+func (c *TypeChecker) CheckEnumType(node *EnumDeclNode) exception.IException {
+	if node == nil {
+		fallbackLoc := NewLocation("<unknown>", NewPosition(1, 1), NewPosition(1, 1))
+		return exception.NewTypeException("Enum name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return exception.NewTypeException("Enum name is missing", node.Loc)
+	}
+
+	if len(node.Members) == 0 {
+		return exception.NewTypeException("Enum must have at least one member", node.Loc)
+	}
+
+	seen := make(map[string]struct{}, len(node.Members))
+	for _, member := range node.Members {
+		if member == nil {
+			continue
+		}
+
+		if _, exists := seen[member.Value]; exists {
+			return exception.NewTypeException(fmt.Sprintf("Enum member '%s' is already defined", member.Value), member.Loc)
+		}
+
+		seen[member.Value] = struct{}{}
+	}
 
 	return nil
 }
@@ -520,6 +586,11 @@ func (c *TypeChecker) Check(ast *ProgramNode) exception.IException {
 		switch v := node.(type) {
 		case *ModelDeclNode:
 			err := c.CheckModelType(v)
+			if err != nil {
+				return err
+			}
+		case *EnumDeclNode:
+			err := c.CheckEnumType(v)
 			if err != nil {
 				return err
 			}
@@ -815,7 +886,8 @@ func (c *TypeChecker) isModelTypeOrArrayOfModel(node *TypeDeclNode) bool {
 		return false
 	}
 
-	if c.isUserDefinedType(node) {
+	sym := c.Context.GetTypeByName(node.Name.Value)
+	if sym != nil && sym.DeclKind == TypeDeclKindModel {
 		return true
 	}
 
@@ -823,5 +895,10 @@ func (c *TypeChecker) isModelTypeOrArrayOfModel(node *TypeDeclNode) bool {
 		return false
 	}
 
-	return c.isUserDefinedType(node.Generics[0])
+	if node.Generics[0] == nil || node.Generics[0].Name == nil {
+		return false
+	}
+
+	itemSym := c.Context.GetTypeByName(node.Generics[0].Name.Value)
+	return itemSym != nil && itemSym.DeclKind == TypeDeclKindModel
 }

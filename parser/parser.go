@@ -251,6 +251,72 @@ func (p *Parser) ParseModelDecl() (*ModelDeclNode, exception.IException) {
 	return &model, nil
 }
 
+func (p *Parser) ParseEnumDecl() (*EnumDeclNode, exception.IException) {
+	if p.Current == nil || !p.Current.Match(TT_IDENT, "enum") {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected 'enum'", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected 'enum'", p.Current.Loc)
+	}
+
+	start := p.Current.Loc
+	node := &EnumDeclNode{Members: make([]*IdentNode, 0)}
+	p.Next()
+
+	if p.Current == nil || !p.Current.MatchType(TT_IDENT) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected identifier for enum name", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected identifier for enum name", p.Current.Loc)
+	}
+
+	node.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+	p.Next()
+	p.SkipNewLine()
+
+	if p.Current == nil || !p.Current.MatchType(TT_LBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected {", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected {", p.Current.Loc)
+	}
+
+	p.Next()
+	p.SkipNewLine()
+
+	for p.Current != nil && !p.Current.MatchType(TT_RBRACE) && !p.Current.MatchType(TT_EOF) {
+		if p.Current.MatchType(TT_NEWLINE) {
+			p.SkipNewLine()
+			continue
+		}
+
+		if !p.Current.MatchType(TT_IDENT) {
+			return nil, exception.NewSyntaxException("Expected enum member name", p.Current.Loc)
+		}
+
+		node.Members = append(node.Members, &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()})
+		p.Next()
+
+		if p.Current != nil && p.Current.MatchType(TT_COMMA) {
+			p.Next()
+		}
+
+		p.SkipNewLine()
+	}
+
+	if p.Current == nil || !p.Current.MatchType(TT_RBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected } at the end of enum declaration", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected } at the end of enum declaration", p.Current.Loc)
+	}
+
+	node.Loc = NewLocation(start.File, start.Start, p.Current.Loc.End)
+	p.Next()
+
+	return node, nil
+}
+
 func (p *Parser) ParseRestDecl() (*RestDeclNode, exception.IException) {
 	if p.Current == nil || !p.Current.Match(TT_IDENT, "rest") {
 		if p.Current == nil {
@@ -699,6 +765,14 @@ func (p *Parser) Parse() (*ProgramNode, exception.IException) {
 
 		case p.Current.Match(TT_IDENT, "model"):
 			n, err := p.ParseModelDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			program.Body = append(program.Body, n)
+
+		case p.Current.Match(TT_IDENT, "enum"):
+			n, err := p.ParseEnumDecl()
 			if err != nil {
 				return nil, err
 			}
