@@ -1,0 +1,9 @@
+export class {{.ModelName}}{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}} {
+{{template "ts_model_fields" .}}
+
+{{template "ts_model_constructor" .}}
+
+{{template "ts_model_mapper" .}}
+
+{{template "ts_model_validate" .}}
+}

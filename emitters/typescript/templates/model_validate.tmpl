@@ -1,0 +1,63 @@
+{{define "ts_validate_plain_validator"}}
+Validator.{{.Name}}(value{{range .Args}}, {{.}}{{end}}),
+{{end}}
+
+{{define "ts_validate_nested_validator"}}
+{{if .IsArrayOfModelType}}
+if (Array.isArray(value)) {
+    value.forEach((item: any, index: number) => {
+        const nestedDetails = {{.ModelTypeName}}.validate(item);
+        for (const [nestedKey, nestedErrors] of Object.entries(nestedDetails)) {
+            details["{{.Field}}." + index + "." + nestedKey] = nestedErrors;
+        }
+    });
+}
+{{else if .IsModelType}}
+if (value !== null && typeof value === "object") {
+    const nestedDetails = {{.ModelTypeName}}.validate(value);
+    for (const [nestedKey, nestedErrors] of Object.entries(nestedDetails)) {
+        details["{{.Field}}." + nestedKey] = nestedErrors;
+    }
+}
+{{else}}
+// NestedValidate is only supported for model and Array<Model> fields.
+{{end}}
+{{end}}
+
+{{define "ts_validate_field"}}
+{{$field := .}}
+{
+    const value = data?.["{{$field.Field}}"];
+    {{if $field.IsOptional}}
+    if (value !== undefined && value !== null) {
+    {{end}}
+    const fieldErrors: string[] = [
+        {{range $field.Validators}}
+        {{if not .IsNestedValidate}}
+        {{template "ts_validate_plain_validator" .}}
+        {{end}}
+        {{- end}}
+    ].filter(Boolean) as string[];
+    {{range $field.Validators}}
+    {{if .IsNestedValidate}}
+    {{template "ts_validate_nested_validator" .}}
+    {{end}}
+    {{- end}}
+    if (fieldErrors.length > 0) {
+        details["{{$field.Field}}"] = fieldErrors;
+    }
+    {{if $field.IsOptional}}
+    }
+    {{end}}
+}
+{{end}}
+
+{{define "ts_model_validate"}}
+static validate(data: any): Record<string, string[]> {
+    const details: Record<string, string[]> = {}
+    {{range .FieldValidators}}
+    {{template "ts_validate_field" .}}
+    {{- end}}
+    return details;
+}
+{{end}}

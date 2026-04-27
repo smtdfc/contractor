@@ -1,0 +1,10 @@
+{
+  "sourceDir": "./contracts",
+  "extension": "contract",
+  "targets": [
+    {
+      "language": "ts",
+      "outDir": "./shared/contracts/src"
+    }
+  ]
+}

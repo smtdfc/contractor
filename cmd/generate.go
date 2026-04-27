@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/smtdfc/contractor/emitters"
+	"github.com/smtdfc/contractor/emitters/typescript"
 	"github.com/smtdfc/contractor/generator"
 	"github.com/smtdfc/contractor/internal/config"
 	"github.com/smtdfc/contractor/parser"
@@ -148,8 +149,8 @@ func resolveEmitter(language string) (emitters.ProgramEmitter, string, error) {
 	switch normalizeLanguage(language) {
 	// case "go", "golang":
 	// 	return golang.NewGoEmitter(), ".go", nil
-	// case "typescript", "ts":
-	// 	return typescript.NewTypescriptEmitter(), ".ts", nil
+	case "typescript", "ts":
+		return typescript.NewTypescriptEmitter(), ".ts", nil
 	// case "java":
 	// 	return java.NewJavaEmitter(), ".java", nil
 	// case "kotlin", "kt":

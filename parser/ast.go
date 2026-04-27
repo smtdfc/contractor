@@ -47,6 +47,20 @@ func (n *ModelDeclNode) GetType() string {
 	return "ModelDecl"
 }
 
+type EnumDeclNode struct {
+	Name    *IdentNode
+	Members []*IdentNode
+	Loc     *Location
+}
+
+func (n *EnumDeclNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *EnumDeclNode) GetType() string {
+	return "EnumDecl"
+}
+
 type RestDeclNode struct {
 	Name             *IdentNode
 	MethodValue      ASTValueNode

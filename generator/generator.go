@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/smtdfc/contractor/exception"
@@ -166,6 +167,16 @@ func (g *IRGenerator) modelToIR(node *parser.ModelDeclNode, modelSymbols map[str
 
 		fields = append(fields, fieldIR)
 	}
+
+	sort.SliceStable(fields, func(i, j int) bool {
+		if fields[i].IsOptional && !fields[j].IsOptional {
+			return false
+		}
+		if !fields[i].IsOptional && fields[j].IsOptional {
+			return true
+		}
+		return false
+	})
 
 	annotations := g.annotationsToIR(node.Annotations)
 	return &ModelIR{

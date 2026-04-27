@@ -1,0 +1,5 @@
+{{define "ts_model_fields"}}
+{{range .Fields}}
+    public {{.Name}}{{if .IsOptional}}?{{end}}: {{.Type}};
+{{- end}}
+{{end}}
