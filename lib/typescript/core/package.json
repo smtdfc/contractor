@@ -1,16 +1,39 @@
 {
   "name": "contractor-ts",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Type-safe runtime helpers and shared types for Contractor-generated TypeScript contracts.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "keywords": [],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "prepack": "pnpm build",
+    "test": "pnpm build"
+  },
+  "keywords": [
+    "contract",
+    "idl",
+    "validation",
+    "typescript",
+    "codegen"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "packageManager": "pnpm@10.33.0",
-  "dependencies": {
-    "zod": "^4.3.6"
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
