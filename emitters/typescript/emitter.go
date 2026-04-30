@@ -141,6 +141,52 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 	return sb.String(), nil
 }
 
+func (t *TypescriptEmitter) EmitEvent(tmpl *template.Template, ir *generator.EventIR) (string, exception.IException) {
+	var sb strings.Builder
+	payloadTypeName := "unknown"
+	if ir.PayloadType != nil {
+		emitted, err := t.EmitTypeName(ir.PayloadType)
+		if err != nil {
+			return "", err
+		}
+		payloadTypeName = emitted
+	}
+
+	data := map[string]any{
+		"Name":          ir.Name,
+		"EventName":     ir.EventName,
+		"EventNameLit":  quoteLiteral(&ir.EventName, ir.EventName),
+		"NameLit":       quoteLiteral(&ir.Name, ir.Name),
+		"PayloadType":   payloadTypeName,
+		"PayloadAlias":  ir.Name + "Payload",
+		"MetadataConst": ir.Name,
+	}
+
+	if err := tmpl.ExecuteTemplate(&sb, "event.tmpl", data); err != nil {
+		return "", exception.NewEmitException(err.Error(), nil)
+	}
+
+	return sb.String(), nil
+}
+
+func (t *TypescriptEmitter) EmitError(tmpl *template.Template, ir *generator.ErrorIR) (string, exception.IException) {
+	var sb strings.Builder
+
+	data := map[string]any{
+		"Name":     ir.Name,
+		"Code":     quoteLiteral(ir.Code, ir.Name),
+		"Message":  strconv.Quote(ir.Message),
+		"HasScope": ir.Scope != nil && strings.TrimSpace(*ir.Scope) != "",
+		"Scope":    quoteLiteral(ir.Scope, ""),
+	}
+
+	if err := tmpl.ExecuteTemplate(&sb, "error.tmpl", data); err != nil {
+		return "", exception.NewEmitException(err.Error(), nil)
+	}
+
+	return sb.String(), nil
+}
+
 func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.RestEndpointIR) (string, exception.IException) {
 	var sb strings.Builder
 
@@ -216,7 +262,29 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 
 	sb.WriteString("// @ts-nocheck\n")
 	sb.WriteString("import { Validator } from \"contractor-ts\";\n\n")
-	sb.WriteString("import type { RestMetadata, RestRequestBody, RestResponseBody } from \"contractor-ts\";\n\n")
+	sb.WriteString("import type { GeneratedErrorConstructorMap, GeneratedValidationDetails, EventMetadata, EventPayload, RestMetadata, RestRequestBody, RestResponseBody } from \"contractor-ts\";\n\n")
+
+	if len(ir.Errors) > 0 {
+		for _, errorIR := range ir.Errors {
+			code, err := t.EmitError(tmpl, errorIR)
+			if err != nil {
+				return "", err
+			}
+
+			sb.WriteString(code)
+		}
+
+		sb.WriteString("export const errorConstructorsByCode: GeneratedErrorConstructorMap = {\n")
+		for _, errorIR := range ir.Errors {
+			codeLiteral := quoteLiteral(errorIR.Code, errorIR.Name)
+			sb.WriteString("  ")
+			sb.WriteString(codeLiteral)
+			sb.WriteString(": ")
+			sb.WriteString(errorIR.Name)
+			sb.WriteString(",\n")
+		}
+		sb.WriteString("};\n\n")
+	}
 
 	for _, model := range ir.Models {
 		code, err := t.EmitModel(tmpl, model)
@@ -229,6 +297,15 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 
 	for _, enumItem := range ir.Enums {
 		code, err := t.EmitEnum(tmpl, enumItem)
+		if err != nil {
+			return "", err
+		}
+
+		sb.WriteString(code)
+	}
+
+	for _, eventItem := range ir.Events {
+		code, err := t.EmitEvent(tmpl, eventItem)
 		if err != nil {
 			return "", err
 		}
@@ -288,4 +365,12 @@ func emitValueLiteral(value *generator.ValueIR) string {
 		}
 		return fmt.Sprint(value.Value)
 	}
+}
+
+func quoteLiteral(value *string, fallback string) string {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return strconv.Quote(fallback)
+	}
+
+	return strconv.Quote(*value)
 }
