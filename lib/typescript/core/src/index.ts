@@ -1,5 +1,3 @@
-import { string } from "zod";
-
 export const Validator = {
   Is: (value: unknown, target: unknown, errorMsg: string) => {
     return value === target ? null : errorMsg;
