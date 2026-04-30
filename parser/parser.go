@@ -432,6 +432,103 @@ func (p *Parser) ParseRestDecl() (*RestDeclNode, exception.IException) {
 
 	return node, nil
 }
+func (p *Parser) ParseEventDecl() (*EventDeclNode, exception.IException) {
+	if p.Current == nil || !p.Current.Match(TT_IDENT, "event") {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected 'event'", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected 'event'", p.Current.Loc)
+	}
+
+	start := p.Current.Loc
+	node := &EventDeclNode{}
+	p.Next()
+
+	if p.Current == nil || !p.Current.MatchType(TT_IDENT) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected identifier for event name", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected identifier for event name", p.Current.Loc)
+	}
+
+	node.Name = &IdentNode{Value: p.Current.Value, Loc: p.Current.Loc.Copy()}
+	p.Next()
+	p.SkipNewLine()
+
+	if p.Current == nil || !p.Current.MatchType(TT_LBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected {", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected {", p.Current.Loc)
+	}
+
+	p.Next()
+	p.SkipNewLine()
+
+	for p.Current != nil && !p.Current.MatchType(TT_RBRACE) && !p.Current.MatchType(TT_EOF) {
+		if p.Current.MatchType(TT_NEWLINE) {
+			p.SkipNewLine()
+			continue
+		}
+
+		if p.Current.MatchType(TT_COMMA) {
+			p.Next()
+			p.SkipNewLine()
+			continue
+		}
+
+		if !p.Current.MatchType(TT_IDENT) {
+			return nil, exception.NewSyntaxException("Expected property name in event body", p.Current.Loc)
+		}
+
+		key := p.Current.Value
+		p.Next()
+
+		if p.Current == nil || !p.Current.MatchType(TT_COLON) {
+			if p.Current == nil {
+				return nil, exception.NewSyntaxException("Expected ':' in event property", p.Tokens[len(p.Tokens)-1].Loc)
+			}
+			return nil, exception.NewSyntaxException("Expected ':' in event property", p.Current.Loc)
+		}
+
+		p.Next()
+
+		switch key {
+		case "name":
+			v, err := p.ParseValue()
+			if err != nil {
+				return nil, err
+			}
+			node.NameValue = v
+		case "payload":
+			t, err := p.ParseTypeDecl()
+			if err != nil {
+				return nil, err
+			}
+			node.PayloadType = t
+		default:
+			return nil, exception.NewSyntaxException("Unknown event property '"+key+"'", p.Current.Loc)
+		}
+
+		if p.Current != nil && p.Current.MatchType(TT_COMMA) {
+			p.Next()
+		}
+
+		p.SkipNewLine()
+	}
+
+	if p.Current == nil || !p.Current.MatchType(TT_RBRACE) {
+		if p.Current == nil {
+			return nil, exception.NewSyntaxException("Expected } at the end of event declaration", p.Tokens[len(p.Tokens)-1].Loc)
+		}
+		return nil, exception.NewSyntaxException("Expected } at the end of event declaration", p.Current.Loc)
+	}
+
+	node.Loc = NewLocation(start.File, start.Start, p.Current.Loc.End)
+	p.Next()
+
+	return node, nil
+}
 
 func (p *Parser) ParseErrorDecl() (*ErrorDeclNode, exception.IException) {
 	if p.Current == nil || !p.Current.Match(TT_IDENT, "error") {
@@ -781,6 +878,13 @@ func (p *Parser) Parse() (*ProgramNode, exception.IException) {
 
 		case p.Current.Match(TT_IDENT, "rest"):
 			n, err := p.ParseRestDecl()
+			if err != nil {
+				return nil, err
+			}
+
+			program.Body = append(program.Body, n)
+		case p.Current.Match(TT_IDENT, "event"):
+			n, err := p.ParseEventDecl()
 			if err != nil {
 				return nil, err
 			}

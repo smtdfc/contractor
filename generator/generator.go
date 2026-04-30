@@ -55,7 +55,7 @@ func NewIRGenerator() *IRGenerator {
 
 func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exception.IException) {
 	if ast == nil {
-		return &ProgramIR{Errors: make([]*ErrorIR, 0), Models: make([]*ModelIR, 0), Enums: make([]*EnumIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
+		return &ProgramIR{Errors: make([]*ErrorIR, 0), Models: make([]*ModelIR, 0), Enums: make([]*EnumIR, 0), Events: make([]*EventIR, 0), Rests: make([]*RestEndpointIR, 0)}, nil
 	}
 
 	typeSymbols, err := g.collectTypeSymbols(ast)
@@ -66,6 +66,7 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 	errors := make([]*ErrorIR, 0)
 	models := make([]*ModelIR, 0)
 	enums := make([]*EnumIR, 0)
+	events := make([]*EventIR, 0)
 	rests := make([]*RestEndpointIR, 0)
 
 	for _, node := range ast.Body {
@@ -84,6 +85,13 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 			}
 
 			enums = append(enums, enumIR)
+		case *parser.EventDeclNode:
+			eventIR, err := g.eventToIR(v, typeSymbols)
+			if err != nil {
+				return nil, err
+			}
+
+			events = append(events, eventIR)
 		case *parser.ErrorDeclNode:
 			errorIR, err := g.errorToIR(v)
 			if err != nil {
@@ -105,6 +113,7 @@ func (g *IRGenerator) GenerateProgram(ast *parser.ProgramNode) (*ProgramIR, exce
 		Errors: errors,
 		Models: models,
 		Enums:  enums,
+		Events: events,
 		Rests:  rests,
 	}, nil
 }
@@ -212,7 +221,6 @@ func (g *IRGenerator) enumToIR(node *parser.EnumDeclNode) (*EnumIR, exception.IE
 		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
 		return nil, exception.NewTypeException("Enum name is missing", fallbackLoc)
 	}
-
 	if node.Name == nil {
 		return nil, exception.NewTypeException("Enum name is missing", node.GetLocation())
 	}
@@ -230,6 +238,30 @@ func (g *IRGenerator) enumToIR(node *parser.EnumDeclNode) (*EnumIR, exception.IE
 		Span:    toSourceSpan(node.Loc),
 		Name:    node.Name.Value,
 		Members: members,
+	}, nil
+}
+
+func (g *IRGenerator) eventToIR(node *parser.EventDeclNode, typeSymbols map[string]TypeKind) (*EventIR, exception.IException) {
+	if node == nil {
+		fallbackLoc := parser.NewLocation("<unknown>", parser.NewPosition(1, 1), parser.NewPosition(1, 1))
+		return nil, exception.NewTypeException("Event name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return nil, exception.NewTypeException("Event name is missing", node.GetLocation())
+	}
+
+	payloadType := g.typeToIR(node.PayloadType, typeSymbols, map[string]struct{}{})
+	eventName := node.Name.Value
+	if nameValue, ok := node.NameValue.(*parser.StringValueNode); ok && nameValue != nil {
+		eventName = nameValue.Value
+	}
+
+	return &EventIR{
+		Span:        toSourceSpan(node.Loc),
+		Name:        node.Name.Value,
+		EventName:   eventName,
+		PayloadType: payloadType,
 	}, nil
 }
 

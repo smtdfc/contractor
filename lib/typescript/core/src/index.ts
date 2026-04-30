@@ -109,3 +109,15 @@ export interface RestMetadata {
 
 export type RestRequestBody<T> = T;
 export type RestResponseBody<T> = T;
+export type GeneratedErrorConstructor = new () => Error;
+export type GeneratedErrorConstructorMap = Record<
+  string,
+  GeneratedErrorConstructor
+>;
+export type GeneratedValidationDetails = Record<string, string[]>;
+export interface EventMetadata {
+  name: string;
+  method: string;
+}
+
+export type EventPayload<T> = T;

@@ -53,8 +53,8 @@ if (value !== null && typeof value === "object") {
 {{end}}
 
 {{define "ts_model_validate"}}
-static validate(data: any): Record<string, string[]> {
-    const details: Record<string, string[]> = {}
+static validate(data: any): GeneratedValidationDetails {
+    const details: GeneratedValidationDetails = {}
     {{range .FieldValidators}}
     {{template "ts_validate_field" .}}
     {{- end}}

@@ -79,6 +79,21 @@ func (n *RestDeclNode) GetType() string {
 	return "RestDecl"
 }
 
+type EventDeclNode struct {
+	Name        *IdentNode
+	PayloadType *TypeDeclNode
+	NameValue   ASTValueNode
+	Loc         *Location
+}
+
+func (n *EventDeclNode) GetLocation() *Location {
+	return n.Loc
+}
+
+func (n *EventDeclNode) GetType() string {
+	return "EventDecl"
+}
+
 type ErrorDeclNode struct {
 	Name         *IdentNode
 	CodeValue    ASTValueNode

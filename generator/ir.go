@@ -64,6 +64,7 @@ type ProgramIR struct {
 	Errors []*ErrorIR
 	Models []*ModelIR
 	Enums  []*EnumIR
+	Events []*EventIR
 	Rests  []*RestEndpointIR
 }
 
@@ -92,6 +93,17 @@ type EnumIR struct {
 
 func (e *EnumIR) GetKind() string {
 	return "enum"
+}
+
+type EventIR struct {
+	Span        *SourceSpan
+	Name        string
+	EventName   string
+	PayloadType *TypeIR
+}
+
+func (e *EventIR) GetKind() string {
+	return "event"
 }
 
 type ModelField struct {

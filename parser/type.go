@@ -32,6 +32,21 @@ const (
 type RestSymbol struct {
 	Name string
 }
+type EventSymbol struct {
+	Name string
+}
+
+func (s *EventSymbol) GetName() string {
+	return s.Name
+}
+
+func (s *EventSymbol) GetGenerics() []*TypeVarNode {
+	return nil
+}
+
+func (s *EventSymbol) GetKind() string {
+	return "event"
+}
 
 type ErrorSymbol struct {
 	Name string
@@ -98,6 +113,13 @@ func (s *RestSymbol) BuiltIn() bool {
 
 func NewRestSymbol(name string) *RestSymbol {
 	return &RestSymbol{Name: name}
+}
+func NewEventSymbol(name string) *EventSymbol {
+	return &EventSymbol{Name: name}
+}
+
+func (s *EventSymbol) BuiltIn() bool {
+	return false
 }
 
 func (s *ErrorSymbol) GetName() string {
@@ -291,6 +313,17 @@ func (c *TypeChecker) FindAllSymbol(prog *ProgramNode) exception.IException {
 			}
 
 			sym := NewRestSymbol(v.Name.Value)
+			if c.Context.Find(sym) {
+				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
+			}
+
+			c.Context.Add(sym)
+		case *EventDeclNode:
+			if v.Name == nil {
+				return exception.NewTypeException("Event name is missing", v.Loc)
+			}
+
+			sym := NewEventSymbol(v.Name.Value)
 			if c.Context.Find(sym) {
 				return exception.NewTypeException(fmt.Sprintf("Name '%s' is already defined", sym.Name), v.Name.Loc)
 			}
@@ -599,12 +632,46 @@ func (c *TypeChecker) Check(ast *ProgramNode) exception.IException {
 			if err != nil {
 				return err
 			}
+		case *EventDeclNode:
+			err := c.CheckEventType(v)
+			if err != nil {
+				return err
+			}
 		case *ErrorDeclNode:
 			err := c.CheckErrorType(v)
 			if err != nil {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func (c *TypeChecker) CheckEventType(node *EventDeclNode) exception.IException {
+	if node == nil {
+		fallbackLoc := NewLocation("<unknown>", NewPosition(1, 1), NewPosition(1, 1))
+		return exception.NewTypeException("Event name is missing", fallbackLoc)
+	}
+
+	if node.Name == nil {
+		return exception.NewTypeException("Event name is missing", node.Loc)
+	}
+
+	if node.PayloadType == nil {
+		return exception.NewTypeException("Event property 'payload' is required", node.Loc)
+	}
+
+	if node.NameValue == nil {
+		return exception.NewTypeException("Event property 'name' is required", node.Loc)
+	}
+
+	if _, ok := node.NameValue.(*StringValueNode); !ok {
+		return exception.NewTypeException("Event property 'name' must be a string literal", node.NameValue.GetLocation())
+	}
+
+	if err := c.CheckType(node.PayloadType); err != nil {
+		return err
 	}
 
 	return nil
