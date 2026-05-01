@@ -5,3 +5,8 @@
 ### Core Philosophy
 
 In microservice architectures, the "contract" between services is often fragile. **Contractor** shifts the focus from manual implementation to **Schema-First development**. By using a single source of truth, it ensures that your data models, validation logic, and transformation rules are always in sync across your entire stack.
+
+### Author & Repository
+
+**Author:** smtdfc  
+**Repository:** [https://github.com/smtdfc/contractor](https://github.com/smtdfc/contractor)
