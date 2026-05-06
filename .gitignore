@@ -5,3 +5,4 @@ dist
 shared
 contracts
 contractor.json
+.vitepress
