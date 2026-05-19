@@ -19,6 +19,7 @@ var typeMap = map[string]string{
 	"Bool":   "boolean",
 	"Null":   "null",
 	"Any":    "any",
+	"Array":  "Array",
 }
 
 func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, exception.IException) {
@@ -27,7 +28,7 @@ func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, exceptio
 	if ir.Kind == generator.TypeKindBuiltin {
 		tsType, ok := typeMap[ir.Name]
 		if !ok {
-			typeName.WriteString("unknown")
+			tsType = "unknown"
 		}
 
 		typeName.WriteString(tsType)
@@ -91,9 +92,12 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 			"ModelTypeName": field.Type.Name,
 		})
 
+		fmt.Println(fmt.Sprintf("Model: %s | Field: %s | Type: %s", ir.Name, field.Name, field.Type.Name))
+
 		isModelType := field.Type.Kind == generator.TypeKindModel
 		isArrayOfModelType := false
 		modelTypeName := field.Type.Name
+
 		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" && len(field.Type.Generics) == 1 {
 			genericItem := field.Type.Generics[0]
 			if genericItem != nil && genericItem.Kind == generator.TypeKindModel {
@@ -132,6 +136,8 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 		}
 
 	}
+
+	// fmt.Println(fields...)
 	data["Fields"] = fields
 	data["FieldValidators"] = fieldValidators
 
