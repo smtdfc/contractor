@@ -12,5 +12,8 @@ export class {{.Name}} extends ContractBaseError {
         {{- if .HasScope}}
         this.scope = {{.Scope}};
         {{- end}}
+        {{- if .Status}}
+        this.status = {{.Status}};
+        {{- end}}
     }
 }

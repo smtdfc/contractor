@@ -181,6 +181,7 @@ func (t *TypescriptEmitter) EmitError(tmpl *template.Template, ir *generator.Err
 
 	data := map[string]any{
 		"Name":     ir.Name,
+		"Status":   ir.Status,
 		"Code":     quoteLiteral(ir.Code, ir.Name),
 		"Message":  strconv.Quote(ir.Message),
 		"HasScope": ir.Scope != nil && strings.TrimSpace(*ir.Scope) != "",
