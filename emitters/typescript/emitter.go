@@ -268,7 +268,7 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 	}
 
 	sb.WriteString("// @ts-nocheck\n")
-	sb.WriteString("import { Validator } from \"contractor-ts\";\n\n")
+	sb.WriteString("import { Validator, ContractBaseError } from \"contractor-ts\";\n\n")
 	sb.WriteString("import type { GeneratedErrorConstructorMap, GeneratedValidationDetails, EventMetadata, EventPayload, RestMetadata, RestRequestBody, RestResponseBody } from \"contractor-ts\";\n\n")
 
 	if len(ir.Errors) > 0 {
