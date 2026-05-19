@@ -1,5 +1,5 @@
-import { GeneratedValidationDetails, ValidationError, IContract } from "contractor-ts"
-import { Hono, Context, Next } from "hono"
+import { GeneratedValidationDetails, ValidationError, RestMetadata, IContractModel } from "contractor-ts"
+import { Hono, Context, Next, Handler } from "hono"
 
 export type HonoApp = Hono<{ Bindings: any, Variables: any }>;
 export type AppContext = Context<{ Bindings: any, Variables: any }>;
@@ -7,7 +7,7 @@ export type AppContext = Context<{ Bindings: any, Variables: any }>;
 
 export type ValidationTarget = 'json' | 'query' | 'param' | 'form';
 
-export function validateMiddleware(target: ValidationTarget, contract: IContract) {
+export function validateMiddleware(target: ValidationTarget, contract: IContractModel) {
     return async function (ctx: AppContext, next: Next) {
         let data: any = {};
 
@@ -41,3 +41,4 @@ export function validateMiddleware(target: ValidationTarget, contract: IContract
         await next();
     }
 }
+

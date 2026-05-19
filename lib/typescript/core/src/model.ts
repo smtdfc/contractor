@@ -1,5 +1,5 @@
 import { GeneratedValidationDetails } from "./validator.js";
 
-export interface IContract {
+export interface IContractModel {
     validate(data: any): GeneratedValidationDetails;
 }
