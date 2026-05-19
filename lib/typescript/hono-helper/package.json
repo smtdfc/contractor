@@ -1,6 +1,6 @@
 {
-  "name": "contractor-ts",
-  "version": "0.0.3",
+  "name": "contractor-hono-helper",
+  "version": "1.0.0",
   "description": "Type-safe runtime helpers and shared types for Contractor-generated TypeScript contracts.",
   "type": "module",
   "main": "./dist/index.js",
@@ -36,7 +36,10 @@
   },
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
-  "dependencies": {},
+  "dependencies": {
+    "contractor-ts": "workspace:*",
+    "hono": "^4.12.19"
+  },
   "devDependencies": {
     "typescript": "^6.0.3"
   }

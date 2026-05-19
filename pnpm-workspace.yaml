@@ -1,2 +1,4 @@
 packages:
   - "./lib/typescript/**"
+allowBuilds:
+  esbuild: true
