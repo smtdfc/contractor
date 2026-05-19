@@ -1,0 +1,39 @@
+{
+  "name": "contractorIDLExtension",
+  "displayName": "ContractorIDL",
+  "description": "",
+  "version": "0.0.1",
+  "author": "smtdfc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smtdfc/contractor"
+  },
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "contractor",
+        "aliases": [
+          "ContractorIDL",
+          "contractor"
+        ],
+        "extensions": [
+          ".contract"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "contractor",
+        "scopeName": "source.contract",
+        "path": "./syntaxes/contractor.tmLanguage.json"
+      }
+    ]
+  }
+}

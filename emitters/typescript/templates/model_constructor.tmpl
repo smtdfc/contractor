@@ -1,0 +1,9 @@
+{{define "ts_model_constructor"}}
+constructor(data?: Partial<{{.ModelName}}{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}}>) {
+    if (data) {
+        {{- range .Fields}}
+        this.{{.Name}} = data.{{.Name}};
+        {{- end}}
+    }
+}
+{{end}}

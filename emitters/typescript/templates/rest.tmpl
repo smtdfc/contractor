@@ -1,0 +1,9 @@
+export const {{.Name}}RestInfo: RestMetadata = {
+    path: {{.Path}},
+    method: {{.Method}},
+    queries: [{{range $i, $q := .Queries}}{{if $i}}, {{end}}{{$q}}{{end}}],
+};
+
+export type {{.Name}}RequestBody = RestRequestBody<{{.RequestType}}>;
+export type {{.Name}}ResponseBody = RestResponseBody<{{.ResponseType}}>;
+

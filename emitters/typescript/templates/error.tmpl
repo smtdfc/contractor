@@ -1,0 +1,15 @@
+export class {{.Name}} extends Error {
+    public message: string;
+    public code: string;
+    public scope?: string;
+
+    constructor() {
+        super({{.Code}});
+        this.name = "{{.Name}}";
+        this.message = {{.Message}};
+        this.code = {{.Code}};
+        {{- if .HasScope}}
+        this.scope = {{.Scope}};
+        {{- end}}
+    }
+}

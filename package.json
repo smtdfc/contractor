@@ -1,0 +1,24 @@
+{
+  "name": "contractor",
+  "version": "1.0.0",
+  "description": "**Contractor** is a specialized Interface Definition Language (IDL) designed to enforce data integrity across distributed systems. It provides a robust mechanism to define cross-platform data contracts, generating validated and idiomatic code for TypeScript and Go, eliminating the risks of manual synchronization.",
+  "license": "MIT",
+  "author": "smtdfc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smtdfc/contractor"
+  },
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs:build": "cd docs && pnpx vitepress build"
+  },
+  "dependencies": {
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.33"
+  }
+}

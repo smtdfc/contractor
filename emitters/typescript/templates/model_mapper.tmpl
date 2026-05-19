@@ -1,0 +1,18 @@
+{{define "ts_model_mapper"}}
+{{if .IsMapper}}
+static fromObject{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}}(data: any): {{.ModelName}}{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}} {
+    if (!data) return null as any;
+
+    const instance = new {{.ModelName}}{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}}();
+    {{range .Fields}}
+    {{if .IsModelType}}
+    instance.{{.Name}} = data.{{.Name}} ? {{.ModelTypeName}}.fromObject(data.{{.Name}}) : undefined;
+    {{else}}
+    instance.{{.Name}} = data.{{.Name}};
+    {{- end}}
+    {{- end}}
+
+    return instance;
+}
+{{end}}
+{{end}}
