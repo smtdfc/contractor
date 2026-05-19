@@ -84,15 +84,7 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 			return "", err
 		}
 
-		fields = append(fields, map[string]any{
-			"Name":          field.Name,
-			"IsOptional":    field.IsOptional,
-			"Type":          fieldTypeName,
-			"IsModelType":   field.Type.Kind == generator.TypeKindModel,
-			"ModelTypeName": field.Type.Name,
-		})
-
-		fmt.Println(fmt.Sprintf("Model: %s | Field: %s | Type: %s", ir.Name, field.Name, field.Type.Name))
+		// fmt.Println(fmt.Sprintf("Model: %s | Field: %s | Type: %s", ir.Name, field.Name, field.Type.Name))
 
 		isModelType := field.Type.Kind == generator.TypeKindModel
 		isArrayOfModelType := false
@@ -105,6 +97,15 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 				modelTypeName = genericItem.Name
 			}
 		}
+
+		fields = append(fields, map[string]any{
+			"Name":               field.Name,
+			"IsOptional":         field.IsOptional,
+			"Type":               fieldTypeName,
+			"IsModelType":        isModelType,
+			"IsArrayOfModelType": isArrayOfModelType,
+			"ModelTypeName":      modelTypeName,
+		})
 
 		validators := []any{}
 		for _, validator := range field.Validators {
