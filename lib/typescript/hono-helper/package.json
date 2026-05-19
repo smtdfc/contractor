@@ -1,7 +1,7 @@
 {
   "name": "contractor-hono-helper",
-  "version": "1.0.0",
-  "description": "Type-safe runtime helpers and shared types for Contractor-generated TypeScript contracts.",
+  "version": "0.0.1",
+  "description": "Type-safe runtime helpers and shared types for Hono framework.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
