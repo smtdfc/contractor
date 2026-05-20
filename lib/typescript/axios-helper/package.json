@@ -1,0 +1,47 @@
+{
+  "name": "contractor-axios-helper",
+  "version": "0.0.2",
+  "description": "Type-safe runtime helpers and shared types for Hono framework.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "prepack": "pnpm build",
+    "test": "pnpm build"
+  },
+  "keywords": [
+    "contract",
+    "idl",
+    "validation",
+    "typescript",
+    "codegen"
+  ],
+  "author": "smtdfc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smtdfc/contractor"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "dependencies": {
+    "axios": "^1.16.1",
+    "contractor-ts": "workspace:*",
+    "hono": "^4.12.19"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

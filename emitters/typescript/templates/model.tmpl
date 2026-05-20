@@ -7,3 +7,9 @@ export class {{.ModelName}}{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if
 
 {{template "ts_model_validate" .}}
 }
+
+export type {{.ModelName}}Schema{{if .IsGeneric}}<{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}>{{end}} = {
+    {{range .Fields}}
+        {{.Name}}{{if .IsOptional}}?{{end}}: {{.Type}};
+    {{- end}}
+}

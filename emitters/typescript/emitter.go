@@ -199,7 +199,9 @@ func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.Rest
 	var sb strings.Builder
 
 	requestTypeName := "unknown"
+	requestClassName := "null"
 	if ir.RequestBodyType != nil {
+		requestClassName = ir.RequestBodyType.Name
 		emitted, err := t.EmitTypeName(ir.RequestBodyType)
 		if err != nil {
 			return "", err
@@ -208,7 +210,9 @@ func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.Rest
 	}
 
 	responseTypeName := "unknown"
+	responseClassName := "null"
 	if ir.ResponseBodyType != nil {
+		responseClassName = ir.ResponseBodyType.Name
 		emitted, err := t.EmitTypeName(ir.ResponseBodyType)
 		if err != nil {
 			return "", err
@@ -222,12 +226,14 @@ func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.Rest
 	}
 
 	data := map[string]any{
-		"Name":         ir.Name,
-		"Path":         strconv.Quote(ir.Path),
-		"Method":       strconv.Quote(ir.Method),
-		"Queries":      queryLiterals,
-		"RequestType":  requestTypeName,
-		"ResponseType": responseTypeName,
+		"Name":              ir.Name,
+		"Path":              strconv.Quote(ir.Path),
+		"Method":            strconv.Quote(ir.Method),
+		"Queries":           queryLiterals,
+		"RequestType":       requestTypeName,
+		"ResponseType":      responseTypeName,
+		"RequestClassName":  requestClassName,
+		"ResponseClassName": responseClassName,
 	}
 
 	if err := tmpl.ExecuteTemplate(&sb, "rest.tmpl", data); err != nil {

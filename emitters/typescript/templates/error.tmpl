@@ -3,7 +3,7 @@ export class {{.Name}} extends ContractBaseError {
     public message: string;
     public code: string;
     public scope?: string;
-
+    public status?: number;
     constructor() {
         super({{.Code}});
         this.name = "{{.Name}}";
