@@ -17,7 +17,8 @@ export default defineConfig({
         ],
       },
       {
-        text: "Language Basics",
+        text: "Fundamentals",
+        collapsed: true,
         items: [
           { text: "Models", link: "/guide/language-basics/models" },
           { text: "Enums", link: "/guide/language-basics/enums" },
@@ -28,10 +29,17 @@ export default defineConfig({
       },
       {
         text: "Advanced",
+        collapsed: true,
         items: [
           { text: "Validation", link: "/guide/validation" },
           { text: "Code Generation", link: "/guide/code-generation" },
-          { text: "TypeScript Code Generation", link: "/guide/typescript-code-generation" },
+        ],
+      },
+      {
+        text: "Typescript",
+        collapsed: true,
+        items: [
+          { text: "Code Generation", link: "/guide/typescript/code-generation" },
         ],
       },
     ],

@@ -4,7 +4,7 @@
 
 ## Philosophy
 
-In microservice architectures, the "contract" between services is often fragile. **Contractor** shifts the focus from manual implementation to **Schema-First development**. 
+In microservice architectures, the "contract" between services is often fragile. **Contractor** shifts the focus from manual implementation to **Schema-First development**.
 
 By using a single source of truth, it ensures that your data models, validation logic, and transformation rules are always in sync across your entire stack.
 
@@ -15,7 +15,6 @@ You can install the Contractor CLI tool globally using Go:
 ```bash
 go install github.com/smtdfc/contractor@latest
 ```
- 
 
 ## Setup
 
@@ -54,7 +53,7 @@ rest GetUser {
 ```
 
 This simple contract defines a `User` model and a basic REST endpoint.
-The exact generated TypeScript artifacts (types, schema, mapper, validator, and runtime notes) are documented in `/guide/typescript-code-generation`.
+The exact generated TypeScript artifacts (types, schema, mapper, validator, and runtime notes) are documented in `/guide/typescript/code-generation`.
 
 ## Generating Code
 

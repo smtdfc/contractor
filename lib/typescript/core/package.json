@@ -1,6 +1,6 @@
 {
   "name": "contractor-ts",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "description": "Type-safe runtime helpers and shared types for Contractor-generated TypeScript contracts.",
   "type": "module",
   "main": "./dist/index.js",

@@ -2,9 +2,9 @@ import { IModelSchema } from "./model.js";
 
 export type RequestBody = IModelSchema;
 export type ResponseBody = IModelSchema;
-export type ResMethod = "GET" | "POST" | "PUT";
+export type RestMethod = "GET" | "POST" | "PUT";
 
-export type RestMetadata<P extends string, M extends ResMethod, Req extends RequestBody, Res extends IModelSchema> = {
+export type RestMetadata<P extends string, M extends RestMethod, Req extends RequestBody, Res extends IModelSchema> = {
     path: P
     method: M
 }
