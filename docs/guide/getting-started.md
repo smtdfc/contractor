@@ -53,7 +53,8 @@ rest GetUser {
 }
 ```
 
-This simple contract defines a `User` model with a generated constructor, as well as a basic REST endpoint.
+This simple contract defines a `User` model and a basic REST endpoint.
+The exact generated TypeScript artifacts (types, schema, mapper, validator, and runtime notes) are documented in `/guide/typescript-code-generation`.
 
 ## Generating Code
 

@@ -30,7 +30,12 @@ export default defineConfig({
         text: "Advanced",
         items: [
           { text: "Validation", link: "/guide/validation" },
-          { text: "Code Generation", link: "/guide/code-generation" },
+        ]
+      },
+      {
+        text: "Typescript",
+        items: [
+          { text: "Code Generation", link: "/guide/typescript/code-generation" },
         ]
       }
     ],

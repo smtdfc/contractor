@@ -1,20 +1,23 @@
 # Enums
 
-Enums (Enumerations) allow you to define a type by enumerating its possible values.
+Enums define a fixed set of named values.
 
-## Defining an Enum
+## Basic Syntax
 
-Use the `enum` keyword followed by the enum name and a block containing its members. Members are separated by commas.
+Use `enum` followed by the enum name and members.
+Members can be separated by commas and/or newlines.
 
 ```contractor
 enum Role {
-    User, Admin, SuperAdmin
+    User,
+    Admin,
+    SuperAdmin
 }
 ```
 
-## Usage
+## Usage In Models
 
-Once defined, enums can be used as types for model fields.
+Once declared, enums can be used as field types.
 
 ```contractor
 model User {
@@ -23,3 +26,31 @@ model User {
     role: Role
 }
 ```
+
+## Rules Checked By Type Checker
+
+1. Enum name is required.
+2. Enum must have at least one member.
+3. Member names must be unique.
+
+## Full Example
+
+```contractor
+enum Permission {
+    Read,
+    Write,
+    Delete
+}
+
+model Policy {
+    id: String
+    defaultPermission: Permission
+    allowed: Array<Permission>
+}
+```
+
+## Common Mistakes
+
+1. Duplicate member names in the same enum.
+2. Empty enum declarations.
+3. Using enum type before it is declared incorrectly in malformed files.

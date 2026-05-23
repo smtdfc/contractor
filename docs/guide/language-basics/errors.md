@@ -1,10 +1,11 @@
 # Errors
 
-Contractor provides a native way to define standard application errors, which helps in maintaining consistent error codes and HTTP statuses across distributed services.
+Errors let you define consistent domain/application errors in one place.
+They are useful for keeping error code and status conventions aligned across services.
 
-## Defining an Error
+## Basic Syntax
 
-Use the `error` keyword followed by the error name and a block specifying its attributes.
+Use `error` followed by the error name and a property block.
 
 ```contractor
 error UserNotFoundError {
@@ -14,19 +15,27 @@ error UserNotFoundError {
 }
 ```
 
-## Error Attributes
+## Properties
 
-Errors support the following attributes:
-- `message`: A human-readable description of the error (String).
-- `code`: A unique, constant string identifier for the error (String).
-- `status`: The HTTP status code associated with the error (Number).
-- `scope`: (Optional) The scope or context of the error (String).
+Supported properties:
+
+- `message` (required): string literal
+- `code` (optional): string literal
+- `scope` (optional): string literal
+- `status` (optional): string literal or number literal
+
+Type checker rules:
+
+1. `message` is required.
+2. `code` must be string if provided.
+3. `scope` must be string if provided.
+4. `status` must be string or number if provided.
 
 ## Example
 
 ```contractor
 error SignInInformationIncorrectError {
-    message: "Sign-in Information Incorrect"
+    message: "Sign-in information incorrect"
     code: "SIGNIN_INFO_INCORRECT_ERR"
     status: 400
 }
@@ -34,6 +43,13 @@ error SignInInformationIncorrectError {
 error AuthorizationError {
     message: "Unauthenticated"
     code: "AUTHORIZATION_ERR"
-    status: 401
+    status: "401"
+    scope: "auth"
 }
 ```
+
+## Common Mistakes
+
+1. Omitting `message`.
+2. Using non-literal values for properties.
+3. Using unknown properties in error blocks.

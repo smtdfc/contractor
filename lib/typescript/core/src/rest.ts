@@ -1,18 +1,16 @@
-export type RestMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "OPTION";
+import { IModelSchema } from "./model.js";
 
-interface IClassConstructor {
-    new(...args: any[]): any;
-    fromObject(obj: any): any;
+export type RequestBody = IModelSchema;
+export type ResponseBody = IModelSchema;
+export type ResMethod = "GET" | "POST" | "PUT";
+
+export type RestMetadata<P extends string, M extends ResMethod, Req extends RequestBody, Res extends IModelSchema> = {
+    path: P
+    method: M
 }
 
+export type GetPath<T> = T extends RestMetadata<infer P, any, any, any> ? P : never;
+export type GetMethod<T> = T extends RestMetadata<any, infer P, any, any> ? P : never;
+export type GetRequest<T> = T extends RestMetadata<any, any, infer P, any> ? P : never;
+export type GetResponse<T> = T extends RestMetadata<any, any, any, infer P> ? P : never;
 
-export interface RestMetadata<P extends string, M extends RestMethod, Req extends IClassConstructor, Res extends IClassConstructor> { // path, method, request , response
-    path: string;
-    method: RestMethod;
-    queries: string[];
-    requestBody: Req;
-    responseBody: Res;
-}
-
-export type RestRequestBody<T> = T;
-export type RestResponseBody<T> = T;

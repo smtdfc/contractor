@@ -16,17 +16,19 @@ pnpm add contractor-ts
 
 ## Usage
 
-The main export is the `Validator` object, which contains a collection of validation functions. Each validator follows a consistent pattern:
+The main export is the fluent `Validator` class. Generated contracts create an instance, select a field with `key()`, then chain validation methods for that field.
 
 ```typescript
 import { Validator } from "contractor-ts";
 
-// Returns null if validation passes, or the error message if it fails
-const result = Validator.IsEmail("test@example.com", "Invalid email");
-// result === null (validation passed)
+const validator = new Validator();
 
-const result = Validator.IsEmail("invalid-email", "Invalid email");
-// result === 'Invalid email' (validation failed)
+validator
+  .key("email")
+  .NotNull("FIELD_NOT_NULL")
+  .IsEmail("INVALID_EMAIL");
+
+const result = validator.execute({ email: "test@example.com" });
 ```
 
 ## Available Validators
@@ -75,6 +77,35 @@ const result = Validator.IsEmail("invalid-email", "Invalid email");
 ### Nested Validation
 
 - **`NestedValidate(value, errorMsg)`** - Validate nested objects that have a `validate()` method
+
+### Fluent Field API
+
+These methods are available on the runtime `Validator` instance and are emitted directly from Contractor annotations:
+
+- **`Is(target, errorMsg)`**
+- **`Min(min, errorMsg)`**
+- **`Max(max, errorMsg)`**
+- **`Length(len, errorMsg)`**
+- **`MinLength(min, errorMsg)`**
+- **`MaxLength(max, errorMsg)`**
+- **`Range(min, max, errorMsg)`**
+- **`Matches(regex, errorMsg)`**
+- **`Contains(substring, errorMsg)`**
+- **`StartsWith(substring, errorMsg)`**
+- **`EndsWith(substring, errorMsg)`**
+- **`In(values, errorMsg)`**
+- **`IsEmail(errorMsg)`**
+- **`IsNumber(errorMsg)`**
+- **`IsURL(errorMsg)`**
+- **`IsUUID(errorMsg)`**
+- **`IsDate(errorMsg)`**
+- **`IsDateTime(errorMsg)`**
+- **`IsAlpha(errorMsg)`**
+- **`IsAlnum(errorMsg)`**
+- **`NotNull(errorMsg)`**
+- **`IsBool(errorMsg)`**
+- **`IsModel(errorMsg)`**
+- **`NestedValidate(errorMsg)`**
 
 ## Example
 

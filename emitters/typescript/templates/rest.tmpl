@@ -1,11 +1,9 @@
-export const {{.Name}}RestInfo: RestMetadata<{{.Path}}, {{.Method}},{{.RequestType}},{{.ResponseType}}>   = {
+/**
+ * Rest Endpoint
+ * @method {{.Method}}
+ * @path {{.Path}}
+ */
+export const {{.Name}}: RestMetadata<{{.Path}}, {{.Method}},{{.ReqType}}, {{.ResType}}> = {
     path: {{.Path}},
     method: {{.Method}},
-    queries: [{{range $i, $q := .Queries}}{{if $i}}, {{end}}{{$q}}{{end}}],
-    requestBody: {{.RequestClassName}},
-    responseBody: {{.ResponseClassName}},
-};
-
-export type {{.Name}}RequestBody = RestRequestBody<{{.RequestType}}>;
-export type {{.Name}}ResponseBody = RestResponseBody<{{.ResponseType}}>;
-
+}

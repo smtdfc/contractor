@@ -1,14 +1,23 @@
 package typescript
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"crypto/md5"
+
 	"github.com/smtdfc/contractor/exception"
 	"github.com/smtdfc/contractor/generator"
 )
+
+func hashModelName(name string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(name))
+	return fmt.Sprintf("%x", hasher.Sum(nil))[:8]
+}
 
 type TypescriptEmitter struct{}
 
@@ -22,7 +31,7 @@ var typeMap = map[string]string{
 	"Array":  "Array",
 }
 
-func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, exception.IException) {
+func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, *exception.EmitException) {
 	var typeName strings.Builder
 
 	if ir.Kind == generator.TypeKindBuiltin {
@@ -66,205 +75,215 @@ func (t *TypescriptEmitter) EmitTypeName(ir *generator.TypeIR) (string, exceptio
 	return typeName.String(), nil
 }
 
-func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.ModelIR) (string, exception.IException) {
-	var sb strings.Builder
-	var data = map[string]any{
-		"ModelName":         ir.Name,
-		"CreateConstructor": ir.IsCreateConstructor,
-		"TypeParams":        ir.TypeParams,
-		"IsGeneric":         len(ir.TypeParams) > 0,
-		"IsMapper":          true,
-	}
+type ModelGenerateData struct {
+	Name        string
+	ModelHash   string
+	Description string
+	IsGeneric   bool
+	TypeParams  []string
+	Fields      []ModelFieldGenerateData
+	Validators  []ModelFieldValidatorGenerateData
+}
 
-	var fields = []any{}
-	var fieldValidators = []any{}
+type ModelFieldGenerateData struct {
+	Name                 string
+	IsOptional           bool
+	Type                 string
+	IsArray              bool
+	IsModel              bool
+	IsGeneric            bool
+	ModelTypeName        string
+	GenericTypeName      string
+	ArrayModelTypeName   string
+	ArrayGenericTypeName string
+}
+
+type ModelFieldValidateRuleGenerateData struct {
+	Name string
+	Args []string
+}
+
+type ModelFieldValidatorGenerateData struct {
+	IsArray       bool
+	IsModel       bool
+	IsGenericType bool
+	TypeName      string
+	Field         string
+	Rules         []ModelFieldValidateRuleGenerateData
+}
+
+type RestGenerateData struct {
+	Name     string
+	Path     string
+	Method   string
+	ResType  string
+	ReqType  string
+	ResClass string
+	ReqClass string
+}
+
+func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.ModelIR) (string, *exception.EmitException) {
+	var wr bytes.Buffer
+
+	var fields []ModelFieldGenerateData
+	var validators []ModelFieldValidatorGenerateData
+
 	for _, field := range ir.Fields {
-		fieldTypeName, err := t.EmitTypeName(field.Type)
+		fieldType, err := t.EmitTypeName(field.Type)
 		if err != nil {
 			return "", err
 		}
 
-		// fmt.Println(fmt.Sprintf("Model: %s | Field: %s | Type: %s", ir.Name, field.Name, field.Type.Name))
+		isFieldArrayType := false
+		isFieldModelType := false
+		isFieldGenericType := false
+		modelTypeName := ""
+		genericTypeName := ""
+		arrayModelTypeName := ""
+		arrayGenericTypeName := ""
 
-		isModelType := field.Type.Kind == generator.TypeKindModel
-		isArrayOfModelType := false
-		modelTypeName := field.Type.Name
+		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" {
+			isFieldArrayType = true
+			if len(field.Type.Generics) > 0 {
+				innerType := field.Type.Generics[0]
+				if innerType.Kind == generator.TypeKindModel {
+					arrayModelTypeName = innerType.Name
+				}
 
-		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" && len(field.Type.Generics) == 1 {
-			genericItem := field.Type.Generics[0]
-			if genericItem != nil && genericItem.Kind == generator.TypeKindModel {
-				isArrayOfModelType = true
-				modelTypeName = genericItem.Name
+				if innerType.Kind == generator.TypeKindGeneric {
+					arrayGenericTypeName = innerType.Name
+				}
 			}
 		}
 
-		fields = append(fields, map[string]any{
-			"Name":               field.Name,
-			"IsOptional":         field.IsOptional,
-			"Type":               fieldTypeName,
-			"IsModelType":        isModelType,
-			"IsArrayOfModelType": isArrayOfModelType,
-			"ModelTypeName":      modelTypeName,
+		if field.Type.Kind == generator.TypeKindModel {
+			isFieldModelType = true
+			modelTypeName = field.Type.Name
+		}
+
+		if field.Type.Kind == generator.TypeKindGeneric {
+			isFieldGenericType = true
+			genericTypeName = field.Type.Name
+		}
+
+		isArrayType := false
+		isModelType := false
+		isGenericType := false
+		typeName := ""
+		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" {
+			isArrayType = true
+			if len(field.Type.Generics) > 0 {
+				innerType := field.Type.Generics[0]
+				typeName = innerType.Name
+
+				if innerType.Kind == generator.TypeKindModel {
+					isModelType = true
+				}
+			}
+		}
+
+		if field.Type.Kind == generator.TypeKindModel {
+			isModelType = true
+			typeName = field.Type.Name
+		}
+
+		if field.Type.Kind == generator.TypeKindGeneric {
+			isGenericType = true
+		}
+
+		fields = append(fields, ModelFieldGenerateData{
+			Name:                 field.Name,
+			Type:                 fieldType,
+			IsOptional:           field.IsOptional,
+			IsArray:              isFieldArrayType,
+			IsModel:              isFieldModelType,
+			IsGeneric:            isFieldGenericType,
+			ModelTypeName:        modelTypeName,
+			GenericTypeName:      genericTypeName,
+			ArrayModelTypeName:   arrayModelTypeName,
+			ArrayGenericTypeName: arrayGenericTypeName,
 		})
 
-		validators := []any{}
+		validateData := ModelFieldValidatorGenerateData{
+			Field:         field.Name,
+			IsModel:       isModelType,
+			IsArray:       isArrayType,
+			IsGenericType: isGenericType,
+			TypeName:      typeName,
+			Rules:         []ModelFieldValidateRuleGenerateData{},
+		}
+
 		for _, validator := range field.Validators {
-			args := make([]string, 0, len(validator.Args))
+
+			var convertedArgs []string
 			for _, arg := range validator.Args {
-				args = append(args, emitValueLiteral(arg))
+				convertedArgs = append(convertedArgs, emitValueLiteral(arg))
 			}
 
-			validators = append(validators, map[string]any{
-				"Name":               validator.Name,
-				"Args":               args,
-				"IsNestedValidate":   validator.Name == "NestedValidate",
-				"Field":              field.Name,
-				"IsModelType":        isModelType,
-				"IsArrayOfModelType": isArrayOfModelType,
-				"ModelTypeName":      modelTypeName,
+			validateData.Rules = append(validateData.Rules, ModelFieldValidateRuleGenerateData{
+				Name: validator.Name,
+				Args: convertedArgs,
 			})
 		}
 
-		if len(validators) > 0 {
-			fieldValidators = append(fieldValidators, map[string]any{
-				"Field":              field.Name,
-				"IsOptional":         field.IsOptional,
-				"IsModelType":        isModelType,
-				"IsArrayOfModelType": isArrayOfModelType,
-				"ModelTypeName":      modelTypeName,
-				"Validators":         validators,
-			})
-		}
-
+		validators = append(validators, validateData)
 	}
 
-	// fmt.Println(fields...)
-	data["Fields"] = fields
-	data["FieldValidators"] = fieldValidators
-
-	if err := tmpl.ExecuteTemplate(&sb, "model.tmpl", data); err != nil {
-		return "", exception.NewEmitException(err.Error(), nil)
+	data := ModelGenerateData{
+		Name:       ir.Name,
+		ModelHash:  hashModelName(ir.Name),
+		IsGeneric:  len(ir.TypeParams) > 0,
+		TypeParams: ir.TypeParams,
+		Fields:     fields,
+		Validators: validators,
 	}
-	return sb.String(), nil
+
+	err := tmpl.ExecuteTemplate(&wr, "model.tmpl", data)
+	if err != nil {
+		fmt.Println(err)
+		return "", exception.NewEmitException("Error", ir.Span.ToLocation())
+	}
+
+	return wr.String(), nil
 }
 
-func (t *TypescriptEmitter) EmitEvent(tmpl *template.Template, ir *generator.EventIR) (string, exception.IException) {
-	var sb strings.Builder
-	payloadTypeName := "unknown"
-	if ir.PayloadType != nil {
-		emitted, err := t.EmitTypeName(ir.PayloadType)
-		if err != nil {
-			return "", err
-		}
-		payloadTypeName = emitted
-	}
+func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.RestEndpointIR) (string, *exception.EmitException) {
+	var wr bytes.Buffer
 
-	data := map[string]any{
-		"Name":          ir.Name,
-		"EventName":     ir.EventName,
-		"EventNameLit":  quoteLiteral(&ir.EventName, ir.EventName),
-		"NameLit":       quoteLiteral(&ir.Name, ir.Name),
-		"PayloadType":   payloadTypeName,
-		"PayloadAlias":  ir.Name + "Payload",
-		"MetadataConst": ir.Name,
-	}
-
-	if err := tmpl.ExecuteTemplate(&sb, "event.tmpl", data); err != nil {
-		return "", exception.NewEmitException(err.Error(), nil)
-	}
-
-	return sb.String(), nil
-}
-
-func (t *TypescriptEmitter) EmitError(tmpl *template.Template, ir *generator.ErrorIR) (string, exception.IException) {
-	var sb strings.Builder
-
-	data := map[string]any{
-		"Name":     ir.Name,
-		"Status":   ir.Status,
-		"Code":     quoteLiteral(ir.Code, ir.Name),
-		"Message":  strconv.Quote(ir.Message),
-		"HasScope": ir.Scope != nil && strings.TrimSpace(*ir.Scope) != "",
-		"Scope":    quoteLiteral(ir.Scope, ""),
-	}
-
-	if err := tmpl.ExecuteTemplate(&sb, "error.tmpl", data); err != nil {
-		return "", exception.NewEmitException(err.Error(), nil)
-	}
-
-	return sb.String(), nil
-}
-
-func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.RestEndpointIR) (string, exception.IException) {
-	var sb strings.Builder
-
-	requestTypeName := "unknown"
-	requestClassName := "null"
+	ReqType := "any"
+	ResType := "any"
+	var err = new(exception.EmitException)
 	if ir.RequestBodyType != nil {
-		requestClassName = ir.RequestBodyType.Name
-		emitted, err := t.EmitTypeName(ir.RequestBodyType)
+		ReqType, err = t.EmitTypeName(ir.RequestBodyType)
 		if err != nil {
 			return "", err
 		}
-		requestTypeName = emitted
 	}
 
-	responseTypeName := "unknown"
-	responseClassName := "null"
 	if ir.ResponseBodyType != nil {
-		responseClassName = ir.ResponseBodyType.Name
-		emitted, err := t.EmitTypeName(ir.ResponseBodyType)
+		ResType, err = t.EmitTypeName(ir.ResponseBodyType)
 		if err != nil {
 			return "", err
 		}
-		responseTypeName = emitted
 	}
 
-	queryLiterals := make([]string, 0, len(ir.Queries))
-	for _, query := range ir.Queries {
-		queryLiterals = append(queryLiterals, strconv.Quote(query))
+	data := RestGenerateData{
+		Name:     ir.Name,
+		Path:     ir.Path,
+		Method:   ir.Method,
+		ResType:  ReqType,
+		ReqType:  ResType,
+		ReqClass: ReqType,
+		ResClass: ResType,
 	}
 
-	data := map[string]any{
-		"Name":              ir.Name,
-		"Path":              strconv.Quote(ir.Path),
-		"Method":            strconv.Quote(ir.Method),
-		"Queries":           queryLiterals,
-		"RequestType":       requestTypeName,
-		"ResponseType":      responseTypeName,
-		"RequestClassName":  requestClassName,
-		"ResponseClassName": responseClassName,
+	err1 := tmpl.ExecuteTemplate(&wr, "rest.tmpl", data)
+	if err1 != nil {
+		fmt.Println(err1)
+		return "", exception.NewEmitException("Error", ir.Span.ToLocation())
 	}
 
-	if err := tmpl.ExecuteTemplate(&sb, "rest.tmpl", data); err != nil {
-		return "", exception.NewEmitException(err.Error(), nil)
-	}
-
-	return sb.String(), nil
-}
-
-func (t *TypescriptEmitter) EmitEnum(tmpl *template.Template, ir *generator.EnumIR) (string, exception.IException) {
-	var sb strings.Builder
-
-	members := make([]map[string]any, 0, len(ir.Members))
-	for i, member := range ir.Members {
-		members = append(members, map[string]any{
-			"Key":    member,
-			"Value":  member,
-			"IsLast": i == len(ir.Members)-1,
-		})
-	}
-
-	data := map[string]any{
-		"Name":    ir.Name,
-		"Members": members,
-	}
-
-	if err := tmpl.ExecuteTemplate(&sb, "enum.tmpl", data); err != nil {
-		return "", exception.NewEmitException(err.Error(), nil)
-	}
-
-	return sb.String(), nil
+	return wr.String(), nil
 }
 
 func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IException) {
@@ -278,27 +297,27 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 	sb.WriteString("import { Validator, ContractBaseError } from \"contractor-ts\";\n\n")
 	sb.WriteString("import type { GeneratedErrorConstructorMap, GeneratedValidationDetails, EventMetadata, EventPayload, RestMetadata, RestRequestBody, RestResponseBody } from \"contractor-ts\";\n\n")
 
-	if len(ir.Errors) > 0 {
-		for _, errorIR := range ir.Errors {
-			code, err := t.EmitError(tmpl, errorIR)
-			if err != nil {
-				return "", err
-			}
+	// if len(ir.Errors) > 0 {
+	// 	for _, errorIR := range ir.Errors {
+	// 		code, err := t.EmitError(tmpl, errorIR)
+	// 		if err != nil {
+	// 			return "", err
+	// 		}
 
-			sb.WriteString(code)
-		}
+	// 		sb.WriteString(code)
+	// 	}
 
-		sb.WriteString("export const errorConstructorsByCode: GeneratedErrorConstructorMap = {\n")
-		for _, errorIR := range ir.Errors {
-			codeLiteral := quoteLiteral(errorIR.Code, errorIR.Name)
-			sb.WriteString("  ")
-			sb.WriteString(codeLiteral)
-			sb.WriteString(": ")
-			sb.WriteString(errorIR.Name)
-			sb.WriteString(",\n")
-		}
-		sb.WriteString("};\n\n")
-	}
+	// 	sb.WriteString("export const errorConstructorsByCode: GeneratedErrorConstructorMap = {\n")
+	// 	for _, errorIR := range ir.Errors {
+	// 		codeLiteral := quoteLiteral(errorIR.Code, errorIR.Name)
+	// 		sb.WriteString("  ")
+	// 		sb.WriteString(codeLiteral)
+	// 		sb.WriteString(": ")
+	// 		sb.WriteString(errorIR.Name)
+	// 		sb.WriteString(",\n")
+	// 	}
+	// 	sb.WriteString("};\n\n")
+	// }
 
 	for _, model := range ir.Models {
 		code, err := t.EmitModel(tmpl, model)
@@ -309,23 +328,23 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 		sb.WriteString(code)
 	}
 
-	for _, enumItem := range ir.Enums {
-		code, err := t.EmitEnum(tmpl, enumItem)
-		if err != nil {
-			return "", err
-		}
+	// for _, enumItem := range ir.Enums {
+	// 	code, err := t.EmitEnum(tmpl, enumItem)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
 
-		sb.WriteString(code)
-	}
+	// 	sb.WriteString(code)
+	// }
 
-	for _, eventItem := range ir.Events {
-		code, err := t.EmitEvent(tmpl, eventItem)
-		if err != nil {
-			return "", err
-		}
+	// for _, eventItem := range ir.Events {
+	// 	code, err := t.EmitEvent(tmpl, eventItem)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
 
-		sb.WriteString(code)
-	}
+	// 	sb.WriteString(code)
+	// }
 
 	for _, rest := range ir.Rests {
 		code, err := t.EmitRest(tmpl, rest)

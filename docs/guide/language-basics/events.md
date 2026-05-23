@@ -1,20 +1,47 @@
 # Events
 
-Events define message payloads for asynchronous communication or pub/sub architectures. 
+Events describe asynchronous messages for pub/sub or event-driven flows.
 
-## Defining an Event
+## Basic Syntax
 
-Use the `event` keyword followed by the event name and a block specifying its properties.
+Use `event` followed by the event identifier and a property block.
 
 ```contractor
 event SignUpEvent {
-    name: "Sign Up"
-    payload: User<String>
+    name: "auth.sign-up"
+    payload: UserCreatedPayload
 }
 ```
 
-## Event Properties
+## Properties
 
-Events support the following properties:
-- `name`: (Optional) The string identifier for the event. If not provided, the name of the event block (`SignUpEvent`) is typically used.
-- `payload`: The type of data associated with the event. This can be a primitive type or a defined `model`.
+Events support:
+
+- `name` (required): string literal
+- `payload` (required): type reference
+
+Type checker rules:
+
+1. `name` is required and must be a string literal.
+2. `payload` is required and must be a valid type.
+3. Unknown event properties are rejected.
+
+## Full Example
+
+```contractor
+model UserCreatedPayload {
+    id: String
+    email: String
+}
+
+event UserCreated {
+    name: "user.created"
+    payload: UserCreatedPayload
+}
+```
+
+## Common Mistakes
+
+1. Treating `name` as optional.
+2. Using non-string value for `name`.
+3. Missing `payload`.
