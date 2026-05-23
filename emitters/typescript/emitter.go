@@ -122,6 +122,33 @@ type RestGenerateData struct {
 	ReqClass string
 }
 
+type ErrorGenerateData struct {
+	Name     string
+	Code     string
+	Message  string
+	Scope    string
+	Status   string
+	HasScope bool
+}
+
+type EnumMemberGenerateData struct {
+	Key    string
+	Value  string
+	IsLast bool
+}
+
+type EnumGenerateData struct {
+	Name    string
+	Members []EnumMemberGenerateData
+}
+
+type EventGenerateData struct {
+	MetadataConst string
+	EventNameLit  string
+	PayloadAlias  string
+	PayloadType   string
+}
+
 func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.ModelIR) (string, *exception.EmitException) {
 	var wr bytes.Buffer
 
@@ -141,6 +168,7 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 		genericTypeName := ""
 		arrayModelTypeName := ""
 		arrayGenericTypeName := ""
+		typeName := ""
 
 		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" {
 			isFieldArrayType = true
@@ -148,6 +176,8 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 				innerType := field.Type.Generics[0]
 				if innerType.Kind == generator.TypeKindModel {
 					arrayModelTypeName = innerType.Name
+					isFieldModelType = true
+					typeName = innerType.Name
 				}
 
 				if innerType.Kind == generator.TypeKindGeneric {
@@ -159,36 +189,12 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 		if field.Type.Kind == generator.TypeKindModel {
 			isFieldModelType = true
 			modelTypeName = field.Type.Name
+			typeName = field.Type.Name
 		}
 
 		if field.Type.Kind == generator.TypeKindGeneric {
 			isFieldGenericType = true
 			genericTypeName = field.Type.Name
-		}
-
-		isArrayType := false
-		isModelType := false
-		isGenericType := false
-		typeName := ""
-		if field.Type.Kind == generator.TypeKindBuiltin && field.Type.Name == "Array" {
-			isArrayType = true
-			if len(field.Type.Generics) > 0 {
-				innerType := field.Type.Generics[0]
-				typeName = innerType.Name
-
-				if innerType.Kind == generator.TypeKindModel {
-					isModelType = true
-				}
-			}
-		}
-
-		if field.Type.Kind == generator.TypeKindModel {
-			isModelType = true
-			typeName = field.Type.Name
-		}
-
-		if field.Type.Kind == generator.TypeKindGeneric {
-			isGenericType = true
 		}
 
 		fields = append(fields, ModelFieldGenerateData{
@@ -206,9 +212,9 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 
 		validateData := ModelFieldValidatorGenerateData{
 			Field:         field.Name,
-			IsModel:       isModelType,
-			IsArray:       isArrayType,
-			IsGenericType: isGenericType,
+			IsModel:       isFieldModelType,
+			IsArray:       isFieldArrayType,
+			IsGenericType: isFieldGenericType,
 			TypeName:      typeName,
 			Rules:         []ModelFieldValidateRuleGenerateData{},
 		}
@@ -247,6 +253,77 @@ func (t *TypescriptEmitter) EmitModel(tmpl *template.Template, ir *generator.Mod
 	return wr.String(), nil
 }
 
+func (t *TypescriptEmitter) EmitError(tmpl *template.Template, ir *generator.ErrorIR) (string, *exception.EmitException) {
+	var wr bytes.Buffer
+
+	data := ErrorGenerateData{
+		Name:     ir.Name,
+		Code:     quoteLiteral(ir.Code, ir.Name),
+		Message:  strconv.Quote(ir.Message),
+		Scope:    quoteLiteral(ir.Scope, ir.Name),
+		Status:   renderStatusLiteral(ir.Status),
+		HasScope: ir.Scope != nil && strings.TrimSpace(*ir.Scope) != "",
+	}
+
+	err := tmpl.ExecuteTemplate(&wr, "error.tmpl", data)
+	if err != nil {
+		fmt.Println(err)
+		return "", exception.NewEmitException("Error", ir.Span.ToLocation())
+	}
+
+	return wr.String(), nil
+}
+
+func (t *TypescriptEmitter) EmitEnum(tmpl *template.Template, ir *generator.EnumIR) (string, *exception.EmitException) {
+	var wr bytes.Buffer
+
+	members := make([]EnumMemberGenerateData, 0, len(ir.Members))
+	for i, member := range ir.Members {
+		members = append(members, EnumMemberGenerateData{
+			Key:    member,
+			Value:  member,
+			IsLast: i == len(ir.Members)-1,
+		})
+	}
+
+	data := EnumGenerateData{
+		Name:    ir.Name,
+		Members: members,
+	}
+
+	err := tmpl.ExecuteTemplate(&wr, "enum.tmpl", data)
+	if err != nil {
+		fmt.Println(err)
+		return "", exception.NewEmitException("Error", ir.Span.ToLocation())
+	}
+
+	return wr.String(), nil
+}
+
+func (t *TypescriptEmitter) EmitEvent(tmpl *template.Template, ir *generator.EventIR) (string, *exception.EmitException) {
+	var wr bytes.Buffer
+
+	payloadType, err := t.EmitTypeName(ir.PayloadType)
+	if err != nil {
+		return "", err
+	}
+
+	data := EventGenerateData{
+		MetadataConst: ir.Name,
+		EventNameLit:  strconv.Quote(ir.EventName),
+		PayloadAlias:  ir.Name + "Payload",
+		PayloadType:   payloadType,
+	}
+
+	execErr := tmpl.ExecuteTemplate(&wr, "event.tmpl", data)
+	if execErr != nil {
+		fmt.Println(execErr)
+		return "", exception.NewEmitException("Error", ir.Span.ToLocation())
+	}
+
+	return wr.String(), nil
+}
+
 func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.RestEndpointIR) (string, *exception.EmitException) {
 	var wr bytes.Buffer
 
@@ -269,10 +346,10 @@ func (t *TypescriptEmitter) EmitRest(tmpl *template.Template, ir *generator.Rest
 
 	data := RestGenerateData{
 		Name:     ir.Name,
-		Path:     ir.Path,
-		Method:   ir.Method,
-		ResType:  ReqType,
-		ReqType:  ResType,
+		Path:     strconv.Quote(ir.Path),
+		Method:   strconv.Quote(ir.Method),
+		ResType:  ResType,
+		ReqType:  ReqType,
 		ReqClass: ReqType,
 		ResClass: ResType,
 	}
@@ -294,30 +371,30 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 	}
 
 	sb.WriteString("// @ts-nocheck\n")
-	sb.WriteString("import { Validator, ContractBaseError } from \"contractor-ts\";\n\n")
-	sb.WriteString("import type { GeneratedErrorConstructorMap, GeneratedValidationDetails, EventMetadata, EventPayload, RestMetadata, RestRequestBody, RestResponseBody } from \"contractor-ts\";\n\n")
+	sb.WriteString("import { Validator } from \"contractor-ts\";\n\n")
+	sb.WriteString("import type { RestMetadata } from \"contractor-ts\";\n\n")
 
-	// if len(ir.Errors) > 0 {
-	// 	for _, errorIR := range ir.Errors {
-	// 		code, err := t.EmitError(tmpl, errorIR)
-	// 		if err != nil {
-	// 			return "", err
-	// 		}
+	if len(ir.Errors) > 0 {
+		for _, errorIR := range ir.Errors {
+			code, err := t.EmitError(tmpl, errorIR)
+			if err != nil {
+				return "", err
+			}
 
-	// 		sb.WriteString(code)
-	// 	}
+			sb.WriteString(code)
+		}
 
-	// 	sb.WriteString("export const errorConstructorsByCode: GeneratedErrorConstructorMap = {\n")
-	// 	for _, errorIR := range ir.Errors {
-	// 		codeLiteral := quoteLiteral(errorIR.Code, errorIR.Name)
-	// 		sb.WriteString("  ")
-	// 		sb.WriteString(codeLiteral)
-	// 		sb.WriteString(": ")
-	// 		sb.WriteString(errorIR.Name)
-	// 		sb.WriteString(",\n")
-	// 	}
-	// 	sb.WriteString("};\n\n")
-	// }
+		sb.WriteString("export const errorConstructorsByCode: GeneratedErrorConstructorMap = {\n")
+		for _, errorIR := range ir.Errors {
+			codeLiteral := quoteLiteral(errorIR.Code, errorIR.Name)
+			sb.WriteString("  ")
+			sb.WriteString(codeLiteral)
+			sb.WriteString(": ")
+			sb.WriteString(errorIR.Name)
+			sb.WriteString(",\n")
+		}
+		sb.WriteString("};\n\n")
+	}
 
 	for _, model := range ir.Models {
 		code, err := t.EmitModel(tmpl, model)
@@ -328,23 +405,23 @@ func (t *TypescriptEmitter) Emit(ir *generator.ProgramIR) (string, exception.IEx
 		sb.WriteString(code)
 	}
 
-	// for _, enumItem := range ir.Enums {
-	// 	code, err := t.EmitEnum(tmpl, enumItem)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
+	for _, enumItem := range ir.Enums {
+		code, err := t.EmitEnum(tmpl, enumItem)
+		if err != nil {
+			return "", err
+		}
 
-	// 	sb.WriteString(code)
-	// }
+		sb.WriteString(code)
+	}
 
-	// for _, eventItem := range ir.Events {
-	// 	code, err := t.EmitEvent(tmpl, eventItem)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
+	for _, eventItem := range ir.Events {
+		code, err := t.EmitEvent(tmpl, eventItem)
+		if err != nil {
+			return "", err
+		}
 
-	// 	sb.WriteString(code)
-	// }
+		sb.WriteString(code)
+	}
 
 	for _, rest := range ir.Rests {
 		code, err := t.EmitRest(tmpl, rest)
@@ -406,4 +483,17 @@ func quoteLiteral(value *string, fallback string) string {
 	}
 
 	return strconv.Quote(*value)
+}
+
+func renderStatusLiteral(value *string) string {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return ""
+	}
+
+	trimmed := strings.TrimSpace(*value)
+	if _, err := strconv.Atoi(trimmed); err == nil {
+		return trimmed
+	}
+
+	return strconv.Quote(trimmed)
 }

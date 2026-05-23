@@ -4,8 +4,9 @@ Enums define a fixed set of named values.
 
 ## Basic Syntax
 
-Use `enum` followed by the enum name and members.
-Members can be separated by commas and/or newlines.
+Use `enum` followed by the enum name and a block of members.
+Members are identifiers, not string literals.
+Commas are optional between members, and newlines are allowed.
 
 ```contractor
 enum Role {
@@ -33,6 +34,8 @@ model User {
 2. Enum must have at least one member.
 3. Member names must be unique.
 
+The parser also rejects non-identifier members.
+
 ## Full Example
 
 ```contractor
@@ -49,8 +52,34 @@ model Policy {
 }
 ```
 
+## Invalid Examples
+
+```contractor
+enum BadRole {
+    User,
+    User
+}
+```
+
+This fails because the same member is declared twice.
+
+```contractor
+enum Empty {
+}
+```
+
+This fails because an enum must have at least one member.
+
+```contractor
+enum WrongMember {
+    "Admin"
+}
+```
+
+This fails because enum members must be identifiers.
+
 ## Common Mistakes
 
 1. Duplicate member names in the same enum.
 2. Empty enum declarations.
-3. Using enum type before it is declared incorrectly in malformed files.
+3. Writing members as strings instead of identifiers.

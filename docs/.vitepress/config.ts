@@ -14,7 +14,7 @@ export default defineConfig({
         text: "Introduction",
         items: [
           { text: "Getting Started", link: "/guide/getting-started" },
-        ]
+        ],
       },
       {
         text: "Language Basics",
@@ -24,20 +24,16 @@ export default defineConfig({
           { text: "Errors", link: "/guide/language-basics/errors" },
           { text: "Events", link: "/guide/language-basics/events" },
           { text: "REST Endpoints", link: "/guide/language-basics/rest" },
-        ]
+        ],
       },
       {
         text: "Advanced",
         items: [
           { text: "Validation", link: "/guide/validation" },
-        ]
+          { text: "Code Generation", link: "/guide/code-generation" },
+          { text: "TypeScript Code Generation", link: "/guide/typescript-code-generation" },
+        ],
       },
-      {
-        text: "Typescript",
-        items: [
-          { text: "Code Generation", link: "/guide/typescript/code-generation" },
-        ]
-      }
     ],
     socialLinks: [
       { icon: "github", link: "https://github.com/smtdfc/contractor" },

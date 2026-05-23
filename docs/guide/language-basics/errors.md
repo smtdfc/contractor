@@ -31,6 +31,8 @@ Type checker rules:
 3. `scope` must be string if provided.
 4. `status` must be string or number if provided.
 
+The parser only accepts literal values here. You cannot use a model field, variable, or expression.
+
 ## Example
 
 ```contractor
@@ -47,6 +49,35 @@ error AuthorizationError {
     scope: "auth"
 }
 ```
+
+## Invalid Examples
+
+```contractor
+error BrokenError {
+    code: "BROKEN_ERR"
+    status: 500
+}
+```
+
+This fails because `message` is required.
+
+```contractor
+error BadStatusError {
+    message: "Bad"
+    status: true
+}
+```
+
+This fails because `status` must be a string or number literal.
+
+```contractor
+error BadCodeError {
+    message: "Bad"
+    code: 123
+}
+```
+
+This fails because `code` must be a string literal.
 
 ## Common Mistakes
 
