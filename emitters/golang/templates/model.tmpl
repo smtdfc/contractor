@@ -1,0 +1,149 @@
+{{if .IsGeneric}}
+type {{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}} any{{end}}] struct {
+{{- else}}
+type {{.Name}} struct {
+{{- end}}
+{{- range .Fields}}
+	{{.NameTitle}} {{if .IsOptional}}*{{end}}{{.Type}} `json:"{{.Name}}{{if .IsOptional}},omitempty{{end}}"`
+{{- end}}
+}
+
+const {{.Name}}ModelHash = "{{.ModelHash}}"
+
+{{if .IsGeneric}}
+func (m *{{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]) GetMetdata() *core.ModelReflectionMetadata[{{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}} {{end}}]] {
+	return &core.ModelReflectionMetadata[{{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]]{
+		Name:      "SignInMetadata",
+		Validator: &{{.Name}}Validator[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]{},
+	}
+}
+
+func (m *{{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]) GetModelHash() string {
+	return "{{.ModelHash}}"
+}
+
+
+{{- else}}
+
+func (m *{{.Name}}) GetMetdata() *core.ModelReflectionMetadata[{{.Name}}] {
+	return &core.ModelReflectionMetadata[{{.Name}}]{
+		Name:      "SignInMetadata",
+		Validator: &{{.Name}}Validator{},
+	}
+}
+
+func (m *{{.Name}})GetModelHash() string {
+	return "{{.ModelHash}}"
+}
+
+{{- end}}
+
+func init() {
+	core.RegisterValidator({{.Name}}ModelHash, func(data interface{}) error {
+		model, ok := data.(*{{.Name}})
+		if !ok || model == nil {
+			return nil
+		}
+		return (&{{.Name}}Validator{}).Validate(model)
+	})
+}
+
+
+
+{{if .IsGeneric}}
+type {{.Name}}Validator[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}} any{{end}}] struct{}
+func (v *{{.Name}}Validator[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]) Validate(data *{{.Name}}[{{range $i, $p := .TypeParams}}{{if $i}}, {{end}}{{$p}}{{end}}]) error {
+{{- else}}
+type {{.Name}}Validator struct{}
+func (v *{{.Name}}Validator) Validate(data *{{.Name}}) error {
+{{- end}}
+	ve := core.NewValidationError()
+	if data == nil {
+		return nil
+	}
+
+	// field validators
+	{{- range .Validators}}
+	{{- $field := .FieldTitle}}
+	{{- $fieldName := .Field}}
+
+
+	// validate field {{.Field}}
+	{{- if .IsArray}}
+		{{- if .IsModel}}
+		if data.{{.FieldTitle}} != nil {
+			for i := range data.{{.FieldTitle}} {
+				item := data.{{.FieldTitle}}[i]
+				if err := (&{{.TypeName}}Validator{}).Validate(&item); err != nil {
+					if vErr, ok := err.(*core.ValidationError); ok {
+						for k, msg := range vErr.Details {
+							ve.Add("{{.Field}}."+core.Itoa(i)+"."+k, msg)
+						}
+					} else {
+						ve.Add("{{.Field}}."+core.Itoa(i), "INVALID")
+					}
+				}
+			}
+		}
+		{{- else if .IsGenericType}}
+		if data.{{.FieldTitle}} != nil {
+			for i := range data.{{.FieldTitle}} {
+				item := data.{{.FieldTitle}}[i]
+				if hash := core.GetModelHash(item); hash != "" {
+					if fn, ok := core.GetRegisteredValidator(hash); ok {
+						if err := fn(item); err != nil {
+							if vErr, ok := err.(*core.ValidationError); ok {
+								for k, msg := range vErr.Details {
+									ve.Add("{{.Field}}."+strconv.Itoa(i)+"."+k, msg)
+								}
+							} else {
+								ve.Add("{{.Field}}."+core.Itoa(i), "INVALID")
+							}
+						}
+					} else {
+						ve.Add("{{.Field}}."+core.Itoa(i), "VALIDATOR_NOT_REGISTERED:"+hash)
+					}
+				}
+			}
+		}
+		{{- end}}
+	{{- else if .IsGenericType}}
+		if hash := core.GetModelHash(data.{{.FieldTitle}}); hash != "" {
+			if fn, ok := core.GetRegisteredValidator(hash); ok {
+				if err := fn(data.{{.FieldTitle}}); err != nil {
+					if vErr, ok := err.(*core.ValidationError); ok {
+						for k, msg := range vErr.Details {
+							ve.Add("{{.Field}}."+k, msg)
+						}
+					} else {
+						ve.Add("{{.Field}}", "INVALID")
+					}
+				}
+			} else {
+				ve.Add("{{.Field}}", "VALIDATOR_NOT_REGISTERED:"+hash)
+			}
+		}
+	{{- else if .IsModel}}
+		if err := (&{{.TypeName}}Validator{}).Validate(&data.{{.FieldTitle}}); err != nil {
+			if vErr, ok := err.(*core.ValidationError); ok {
+				for k, msg := range vErr.Details {
+					ve.Add("{{.Field}}."+k, msg)
+				}
+			} else {
+				ve.Add("{{.Field}}", "INVALID")
+			}
+		}
+	{{- end}}
+	{{range $i, $p := .Rules}}
+	if valid, msg := core.{{$p.Name}}(data.{{$field}},{{$len := len .Args}}{{if gt $len 0}}{{range $index, $arg := .Args}}{{if $index}}, {{end}}{{$arg}}{{end}}{{end}}); !valid{
+		ve.Add("{{$fieldName}}",msg)
+	}
+	{{- end}}
+	{{- end}}
+
+	if ve.HasErrors() {
+		return ve
+	}
+
+	return nil
+}

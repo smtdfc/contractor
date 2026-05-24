@@ -5,6 +5,10 @@
     {
       "language": "ts",
       "outDir": "./shared/contracts/src"
+    },
+    {
+      "language": "go",
+      "outDir": "./shared/contracts/go"
     }
   ]
 }

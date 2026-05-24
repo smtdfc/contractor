@@ -1,0 +1,9 @@
+type {{.MetadataConst}}Metadata struct {
+	Name string
+}
+
+var {{.MetadataConst}} = {{.MetadataConst}}Metadata{
+	Name: {{.EventNameLit}},
+}
+
+type {{.PayloadAlias}} {{.PayloadType}}

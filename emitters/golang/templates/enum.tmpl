@@ -1,0 +1,7 @@
+type {{.Name}} string
+
+const (
+{{- range .Members}}
+	{{$.Name}}_{{.Key}} {{$.Name}} = "{{.Value}}"
+{{- end}}
+)

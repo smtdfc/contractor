@@ -1,0 +1,23 @@
+type {{.Name}} struct {
+	Message string
+	Code    string
+	Scope   string
+	Status  int
+}
+
+func (e *{{.Name}}) Error() string {
+	return e.Message
+}
+
+func New{{.Name}}() *{{.Name}} {
+	return &{{.Name}}{
+		Message: {{.Message}},
+		Code:    {{.Code}},
+		{{- if .HasScope}}
+		Scope:   {{.Scope}},
+		{{- end}}
+		{{- if .Status}}
+		Status:  {{.Status}},
+		{{- end}}
+	}
+}
